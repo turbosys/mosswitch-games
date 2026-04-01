@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dash Frog</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a2e1a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script>
+const W = Math.min(window.innerWidth, 480);
+const H = Math.round(W * (640 / 480));
+const GY = H - 60;
+const PALETTE = { bg: 0x1a2e1a, ground: 0x2d5a27, frog: 0x4a8c3f, frogD: 0x2d5a27, log: 0x5d4037, logD: 0x3e2723, bat: 0x4a148c, batW: 0x7b1fa2, text: 0xffffff, line: 0x8bc34a };
+
+// Web Audio beep
+let audioCtx;
+function beep(freq=440, dur=0.08) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value = freq; o.type = 'square';
+    g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+// ── BOOT SCENE ──────────────────────────────────────────────────────────────
+class BootScene extends Phaser.Scene {
+  constructor() { super('Boot'); }
+  create() {
+    // Draw frog texture 32x32
+    const fg = this.make.graphics({ x: 0, y: 0, add: false });
+    fg.fillStyle(PALETTE.frog); fg.fillRoundedRect(0, 4, 32, 24, 6);
+    fg.fillStyle(PALETTE.frogD); fg.fillRect(0, 20, 32, 8);
+    fg.fillStyle(PALETTE.frog); fg.fillCircle(6, 4, 5); fg.fillCircle(26, 4, 5);
+    fg.fillStyle(0xffffff); fg.fillCircle(7, 3, 2); fg.fillCircle(27, 3, 2);
+    fg.fillStyle(0x111111); fg.fillCircle(7, 3, 1); fg.fillCircle(27, 3, 1);
+    fg.generateTexture('frog', 32, 32); fg.destroy();
+
+    // Log texture 20x40
+    const lg = this.make.graphics({ x: 0, y: 0, add: false });
+    lg.fillStyle(PALETTE.log); lg.fillRect(0, 0, 20, 40);
+    lg.fillStyle(PALETTE.logD); lg.fillRect(2, 0, 4, 40); lg.fillRect(14, 0, 4, 40);
+    lg.fillStyle(0x6d4c41); lg.fillRect(0, 5, 20, 3); lg.fillRect(0, 15, 20, 3); lg.fillRect(0, 28, 20, 3);
+    lg.generateTexture('log', 20, 40); lg.destroy();
+
+    // Bat texture 36x18
+    const bg2 = this.make.graphics({ x: 0, y: 0, add: false });
+    bg2.fillStyle(PALETTE.bat); bg2.fillEllipse(18, 9, 24, 12);
+    bg2.fillStyle(PALETTE.batW); bg2.fillTriangle(0, 12, 14, 4, 8, 18); bg2.fillTriangle(36, 12, 22, 4, 28, 18);
+    bg2.fillStyle(PALETTE.bat); bg2.fillEllipse(18, 9, 12, 8);
+    bg2.fillStyle(0xff4444); bg2.fillCircle(13, 7, 2); bg2.fillCircle(23, 7, 2);
+    bg2.generateTexture('bat', 36, 18); bg2.destroy();
+
+    this.scene.start('Game');
+  }
+}
+
+// ── GAME SCENE ───────────────────────────────────────────────────────────────
+class GameScene extends Phaser.Scene {
+  constructor() { super('Game'); }
+
+  create() {
+    this.gameStarted = false;
+    this.dead = false;
+    this.score = 0;
+    this.scoreTick = 0;
+    this.elapsed = 0;
+    this.speed = 280;
+    this.spawnInterval = 2200;
+    this.spawnTimer = 0;
+    this.jumpCount = 0;
+    this.isGrounded = true;
+    this.deadTimer = 0;
+    this.spinAngle = 0;
+
+    // BG
+    const bgGfx = this.add.graphics();
+    bgGfx.fillGradientStyle(0x1a2e1a, 0x1a2e1a, 0x0d1a0d, 0x0d1a0d, 1);
+    bgGfx.fillRect(0, 0, W, H);
+
+    // Speed lines
+    this.lines = [];
+    for (let i = 0; i < 4; i++) {
+      const g = this.add.graphics();
+      this.lines.push({ gfx: g, x: Phaser.Math.Between(0, W), y: Phaser.Math.Between(GY - 180, GY - 40), len: Phaser.Math.Between(30, 70), speed: Phaser.Math.Between(200, 350) });
+    }
+
+    // Ground
+    const gGfx = this.add.graphics();
+    gGfx.fillStyle(PALETTE.ground); gGfx.fillRect(0, GY, W, H - GY);
+    gGfx.fillStyle(0x3d7a32); gGfx.fillRect(0, GY, W, 4);
+    gGfx.fillStyle(0x1a4a18); gGfx.fillRect(0, GY + 4, W, 3);
+
+    // Physics
+    this.physics.world.gravity.y = 800;
+    this.physics.world.setBounds(0, 0, W, H);
+
+    // Frog
+    this.frog = this.physics.add.image(80, GY - 32, 'frog').setOrigin(0.5, 1);
+    this.frog.body.setCollideWorldBounds(true);
+    this.frog.body.setSize(28, 28);
+    this.frog.body.setOffset(2, 4);
+
+    // Ground collider
+    this.groundBody = this.physics.add.staticImage(W / 2, GY + 10, null).setVisible(false);
+    this.groundBody.setDisplaySize(W, 20).refreshBody();
+    this.physics.add.collider(this.frog, this.groundBody, () => this.onLand());
+
+    // Obstacles
+    this.obstacles = this.physics.add.group();
+    this.physics.add.overlap(this.frog, this.obstacles, () => this.die());
+
+    // Score text
+    this.scoreTxt = this.add.text(W - 10, 14, '0m', { fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(1, 0);
+
+    // Best text
+    const best = parseInt(localStorage.getItem('dashfrog_best') || '0');
+    this.bestTxt = this.add.text(W - 10, 40, best > 0 ? `Best: ${best}m` : '', { fontSize: '14px', fontFamily: 'monospace', color: '#8bc34a', stroke: '#000000', strokeThickness: 2 }).setOrigin(1, 0);
+
+    // START overlay
+    this.startOverlay = this.add.container(W / 2, H / 2 - 60);
+    const title = this.add.text(0, 0, 'DASH FROG', { fontSize: '42px', fontFamily: 'monospace', color: '#8bc34a', stroke: '#2d5a27', strokeThickness: 4 }).setOrigin(0.5);
+    const bestVal = parseInt(localStorage.getItem('dashfrog_best') || '0');
+    const bestTxt2 = this.add.text(0, 54, bestVal > 0 ? `Best: ${bestVal}m` : '', { fontSize: '18px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5);
+    this.tapTxt = this.add.text(0, 100, 'TAP TO START', { fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    this.startOverlay.add([title, bestTxt2, this.tapTxt]);
+    this.tweens.add({ targets: this.tapTxt, alpha: 0, duration: 500, yoyo: true, repeat: -1 });
+
+    // Input
+    this.input.on('pointerdown', () => this.handleTap());
+    this.input.keyboard && this.input.keyboard.on('keydown-SPACE', () => this.handleTap());
+
+  }
+
+  handleTap() {
+    if (this.dead) return;
+    if (!this.gameStarted) { this.startGame(); return; }
+    if (this.isGrounded) {
+      this.jump(-520);
+    } else if (this.jumpCount < 2) {
+      this.jump(-420);
+    }
+  }
+
+  jump(vel) {
+    this.frog.body.velocity.y = vel;
+    this.jumpCount++;
+    this.isGrounded = false;
+    beep(vel === -520 ? 440 : 600, 0.07);
+  }
+
+  onLand() {
+    if (!this.isGrounded && !this.dead) {
+      this.isGrounded = true;
+      this.jumpCount = 0;
+      // Squish
+      this.frog.setScale(1.2, 0.7);
+      this.tweens.add({ targets: this.frog, scaleX: 1, scaleY: 1, duration: 80, ease: 'Back.easeOut' });
+    }
+  }
+
+  startGame() {
+    this.gameStarted = true;
+    this.startOverlay.setVisible(false);
+    this.spawnTimer = this.spawnInterval;
+  }
+
+  spawnObstacle() {
+    const isLog = Phaser.Math.Between(0, 10) < 6;
+    let obs;
+    if (isLog) {
+      obs = this.obstacles.create(W + 20, GY - 40, 'log').setOrigin(0.5, 1);
+      obs.body.setAllowGravity(false);
+      obs.body.setImmovable(true);
+      obs.body.setSize(18, 36).setOffset(1, 4);
+    } else {
+      const batY = GY - 32 - 32 - 8;
+      obs = this.obstacles.create(W + 20, batY, 'bat').setOrigin(0.5, 0.5);
+      obs.body.setAllowGravity(false);
+      obs.body.setImmovable(true);
+      obs.body.setSize(30, 14).setOffset(3, 2);
+      // Flap tween
+      this.tweens.add({ targets: obs, y: batY - 10, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+    obs.obsSpeed = this.speed;
+  }
+
+  die() {
+    if (this.dead) return;
+    this.dead = true;
+    this.frog.body.velocity.x = 0;
+    beep(180, 0.3);
+    // Save best
+    const prev = parseInt(localStorage.getItem('dashfrog_best') || '0');
+    if (this.score > prev) localStorage.setItem('dashfrog_best', this.score);
+    this.deadTimer = 0;
+    this.spinAngle = 0;
+  }
+
+  updateDifficulty() {
+    const t = this.elapsed;
+    if (t < 10) { this.speed = 280; this.spawnInterval = 2200; }
+    else if (t < 20) { this.speed = 320; this.spawnInterval = 2000; }
+    else if (t < 30) { this.speed = 370; this.spawnInterval = 1800; }
+    else if (t < 40) { this.speed = 420; this.spawnInterval = 1600; }
+    else { this.speed = 480; this.spawnInterval = 1400; }
+  }
+
+  update(time, delta) {
+    const dt = delta / 1000;
+
+    // Blink tapTxt handled by tween
+    // Speed lines
+    for (const l of this.lines) {
+      l.x -= l.speed * dt;
+      if (l.x + l.len < 0) { l.x = W + 10; l.y = Phaser.Math.Between(GY - 180, GY - 40); l.len = Phaser.Math.Between(30, 70); }
+      l.gfx.clear();
+      if (this.gameStarted && !this.dead) {
+        l.gfx.lineStyle(1, PALETTE.line, 0.3);
+        l.gfx.strokeLineShape(new Phaser.Geom.Line(l.x, l.y, l.x + l.len, l.y));
+      }
+    }
+
+    if (!this.gameStarted || this.dead) {
+      if (this.dead) {
+        this.deadTimer += dt;
+        this.spinAngle += 720 * dt;
+        this.frog.setAngle(this.spinAngle);
+        if (this.deadTimer > 1.0) {
+          this.scene.start('GameOver', { score: this.score });
+        }
+      }
+      return;
+    }
+
+    this.elapsed += dt;
+    this.updateDifficulty();
+
+    // Score
+    this.scoreTick += dt;
+    if (this.scoreTick >= 0.1) { this.scoreTick -= 0.1; this.score++; }
+    this.scoreTxt.setText(this.score + 'm');
+
+    // Spawn
+    this.spawnTimer -= delta;
+    if (this.spawnTimer <= 0) {
+      this.spawnObstacle();
+      this.spawnTimer = this.spawnInterval + Phaser.Math.Between(-200, 200);
+    }
+
+    // Move obstacles
+    this.obstacles.getChildren().forEach(obs => {
+      obs.x -= (obs.obsSpeed || this.speed) * dt;
+      if (obs.x < -60) obs.destroy();
+    });
+
+    // Frog ground check
+    if (this.frog.body.blocked.down) {
+      if (!this.isGrounded) this.onLand();
+    } else {
+      if (this.frog.y < GY - 32) this.isGrounded = false;
+    }
+
+    // Frog run anim (bob when grounded)
+    if (this.isGrounded && this.frog.scaleY === 1) {
+      const bob = Math.sin(this.elapsed * 18) * 1.5;
+      this.frog.y = GY - 32 + bob;
+    }
+  }
+}
+
+// ── GAME OVER SCENE ───────────────────────────────────────────────────────────
+class GameOverScene extends Phaser.Scene {
+  constructor() { super('GameOver'); }
+
+  create(data) {
+    const score = data.score || 0;
+    const best = parseInt(localStorage.getItem('dashfrog_best') || '0');
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.7); bg.fillRect(0, 0, W, H);
+
+    this.add.text(W / 2, H / 2 - 120, 'GAME OVER', { fontSize: '40px', fontFamily: 'monospace', color: '#ff4444', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    this.add.text(W / 2, H / 2 - 50, `Score: ${score}m`, { fontSize: '28px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    this.add.text(W / 2, H / 2, `Best: ${best}m`, { fontSize: '22px', fontFamily: 'monospace', color: '#8bc34a', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+
+    const tapTxt = this.add.text(W / 2, H / 2 + 80, 'TAP TO RETRY', { fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    this.tweens.add({ targets: tapTxt, alpha: 0, duration: 500, yoyo: true, repeat: -1 });
+
+    this.time.delayedCall(400, () => {
+      this.input.on('pointerdown', () => this.scene.start('Game'));
+      this.input.keyboard && this.input.keyboard.on('keydown-SPACE', () => this.scene.start('Game'));
+    });
+  }
+}
+
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const config = {
+  type: Phaser.AUTO,
+  width: W,
+  height: H,
+  backgroundColor: '#1a2e1a',
+  physics: { default: 'arcade', arcade: { gravity: { y: 800 }, debug: false } },
+  scene: [BootScene, GameScene, GameOverScene],
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  parent: document.body,
+};
+
+new Phaser.Game(config);
+</script>
+</body>
+</html>
