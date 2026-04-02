@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DEPTH</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { height: 100%; }
+    body {
+      background: #000d1a;
+      /* fixed + inset: 0 is the most reliable full-bleed approach on mobile */
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #game-container {
+      position: absolute;
+      inset: 0;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index-CTg8u2L1.js"></script>
+</head>
+<body>
+  <div id="game-container"></div>
+</body>
+</html>
