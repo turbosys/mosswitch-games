@@ -3,527 +3,562 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MOSSWITCH GAMES</title>
+  <title>MOSSWITCH GAMES — Autonomous Indie Studio</title>
   <style>
-    /* ── Reset ── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    /* ── Fonts ── */
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
-    /* ── Variables ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --bg:        #0f1a0f;
-      --bg2:       #162216;
-      --bg3:       #1c2e1c;
-      --accent:    #4a8c3f;
-      --accent2:   #6ab85e;
-      --text:      #c8e6c9;
-      --text-dim:  #7aad7a;
-      --border:    #2e4a2e;
-      --glow:      rgba(74, 140, 63, 0.35);
-      --radius:    4px;
+      --bg:       #0a110a;
+      --bg2:      #111a11;
+      --bg3:      #182018;
+      --bg4:      #1e2a1e;
+      --accent:   #4a8c3f;
+      --accent2:  #6ab85e;
+      --accent3:  #8fd67f;
+      --dim:      #7aad7a;
+      --dimmer:   #3d6b3d;
+      --border:   #243824;
+      --border2:  #2e4a2e;
+      --glow:     rgba(74,140,63,0.3);
+      --glow2:    rgba(106,184,94,0.15);
+      --text:     #c8e6c9;
+      --r:        4px;
     }
 
-    /* ── Base ── */
     html { scroll-behavior: smooth; }
 
     body {
-      background-color: var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: 'Courier New', Courier, monospace;
       font-size: 14px;
       line-height: 1.6;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
     }
 
-    /* ── Scanline overlay ── */
+    /* Scanlines */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
-      background: repeating-linear-gradient(
-        to bottom,
-        transparent,
-        transparent 2px,
-        rgba(0, 0, 0, 0.08) 2px,
-        rgba(0, 0, 0, 0.08) 4px
-      );
+      background: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
       pointer-events: none;
-      z-index: 999;
+      z-index: 9999;
     }
 
-    /* ── Header ── */
-    header {
-      background: var(--bg2);
-      border-bottom: 2px solid var(--border);
-      padding: 2.5rem 1.5rem 2rem;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { color: var(--accent3); }
 
-    header::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    }
+    @keyframes blink  { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+    @keyframes pulse  { 0%,100%{opacity:0.6} 50%{opacity:1} }
+    @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+    @keyframes scanH  { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
-    .studio-logo {
-      display: inline-block;
-      font-family: 'Press Start 2P', 'Courier New', monospace;
-      font-size: clamp(1rem, 4vw, 1.8rem);
-      color: var(--accent2);
-      letter-spacing: 0.05em;
-      text-shadow:
-        0 0 8px var(--glow),
-        0 0 20px var(--glow),
-        2px 2px 0 #0a100a;
-      margin-bottom: 0.6rem;
-    }
+    .cursor { display:inline-block; width:10px; height:1em; background:var(--accent2); vertical-align:text-bottom; animation:blink 1s step-end infinite; margin-left:4px; }
 
-    .studio-logo span {
-      color: var(--text-dim);
-    }
-
-    .studio-tagline {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-    }
-
-    /* ── Pixel frog decoration ── */
-    .pixel-deco {
-      display: block;
-      margin: 0.8rem auto 0;
-      width: 32px;
-      height: 20px;
-      background:
-        /* frog eyes */
-        radial-gradient(circle 3px at 9px 4px, var(--accent2) 100%, transparent 100%),
-        radial-gradient(circle 3px at 23px 4px, var(--accent2) 100%, transparent 100%),
-        /* body */
-        linear-gradient(var(--accent) 0 100%);
-      border-radius: 50% 50% 40% 40%;
-      box-shadow: 0 0 8px var(--glow);
-    }
-
-    /* ── Nav bar ── */
-    nav {
-      background: var(--bg2);
+    /* ── NAV ─────────────────────────────────────────────────────────── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,17,10,0.92);
+      backdrop-filter: blur(6px);
       border-bottom: 1px solid var(--border);
-      padding: 0.6rem 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-    }
-
-    nav a {
-      color: var(--text-dim);
-      text-decoration: none;
-      font-size: 0.7rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 0.2rem 0;
-      border-bottom: 2px solid transparent;
-      transition: color 0.2s, border-color 0.2s;
-    }
-
-    nav a:hover, nav a.active {
-      color: var(--accent2);
-      border-bottom-color: var(--accent2);
-    }
-
-    /* ── Main ── */
-    main {
-      flex: 1;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 2.5rem 1.5rem;
-    }
-
-    /* ── Section heading ── */
-    .section-heading {
-      font-family: 'Press Start 2P', 'Courier New', monospace;
-      font-size: 0.65rem;
-      color: var(--accent);
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      margin-bottom: 1.8rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .section-heading::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, var(--border), transparent);
-    }
-
-    /* ── Game grid ── */
-    .game-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1.5rem;
-    }
-
-    @media (max-width: 600px) {
-      .game-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (min-width: 900px) {
-      .game-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    /* ── Game card ── */
-    .card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-      position: relative;
-    }
-
-    .card:hover {
-      transform: translateY(-3px);
-      border-color: var(--accent);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 0 12px var(--glow);
-    }
-
-    /* Pixel corner decorations */
-    .card::before,
-    .card::after {
-      content: '';
-      position: absolute;
-      width: 6px;
-      height: 6px;
-      border-color: var(--accent);
-      border-style: solid;
-      opacity: 0;
-      transition: opacity 0.18s;
-    }
-    .card::before {
-      top: 6px; left: 6px;
-      border-width: 2px 0 0 2px;
-    }
-    .card::after {
-      top: 6px; right: 6px;
-      border-width: 2px 2px 0 0;
-    }
-    .card:hover::before,
-    .card:hover::after {
-      opacity: 1;
-    }
-
-    /* ── Thumbnail ── */
-    .thumbnail {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .thumbnail-inner {
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
-
-    /* Pixel grid overlay on thumbnail */
-    .thumbnail-inner::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(0,0,0,0.15) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.15) 1px, transparent 1px);
-      background-size: 16px 16px;
-    }
-
-    .thumb-label {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      background: rgba(0,0,0,0.65);
-      color: var(--text);
-      font-size: 0.55rem;
-      letter-spacing: 0.1em;
-      padding: 3px 6px;
-      font-family: 'Courier New', monospace;
-      z-index: 1;
-    }
-
-    /* ── Card body ── */
-    .card-body {
-      padding: 1rem 1rem 0.8rem;
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      gap: 0.55rem;
-    }
-
-    .card-title {
-      font-family: 'Press Start 2P', 'Courier New', monospace;
-      font-size: 0.7rem;
-      color: var(--text);
-      line-height: 1.5;
-      letter-spacing: 0.03em;
-    }
-
-    .genre-tag {
-      display: inline-block;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      color: var(--accent2);
-      font-size: 0.6rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 2px;
-      width: fit-content;
-    }
-
-    .card-desc {
-      color: var(--text-dim);
-      font-size: 0.78rem;
-      line-height: 1.55;
-      flex: 1;
-    }
-
-    /* tags row */
-    .tag-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-
-    .pill {
-      background: rgba(74,140,63,0.12);
-      border: 1px solid rgba(74,140,63,0.3);
-      color: var(--text-dim);
-      font-size: 0.55rem;
-      letter-spacing: 0.1em;
-      padding: 2px 6px;
-      border-radius: 2px;
-    }
-
-    /* ── Card footer ── */
-    .card-footer {
-      padding: 0 1rem 1rem;
+      padding: 0.7rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    .card-meta {
-      font-size: 0.6rem;
-      color: var(--border);
+    .nav-logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.55rem;
+      color: var(--accent2);
       letter-spacing: 0.1em;
+      text-shadow: 0 0 8px var(--glow);
     }
 
-    /* ── Play button ── */
-    .btn-play {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff;
-      text-decoration: none;
-      font-family: 'Press Start 2P', 'Courier New', monospace;
-      font-size: 0.55rem;
+    .nav-links { display:flex; gap:1.8rem; }
+    .nav-links a {
+      font-size: 0.6rem;
+      color: var(--dim);
       letter-spacing: 0.15em;
-      padding: 0.5rem 1rem;
-      border-radius: var(--radius);
-      border: 2px solid transparent;
-      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
       text-transform: uppercase;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .nav-links a:hover { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+    /* ── HERO ────────────────────────────────────────────────────────── */
+    .hero {
       position: relative;
       overflow: hidden;
-    }
-
-    .btn-play::before {
-      content: '▶ ';
-      font-size: 0.5rem;
-    }
-
-    .btn-play:hover {
-      background: var(--accent2);
-      box-shadow: 0 0 12px var(--glow), 0 0 4px var(--glow);
-      transform: scale(1.04);
-    }
-
-    .btn-play:active {
-      transform: scale(0.97);
-    }
-
-    /* ── Stats bar ── */
-    .stats-bar {
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
+      padding: 6rem 2rem 5rem;
+      text-align: center;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(74,140,63,0.08) 0%, transparent 70%);
       border-bottom: 1px solid var(--border);
-      padding: 0.8rem 1.5rem;
-      display: flex;
-      gap: 2rem;
-      flex-wrap: wrap;
-      max-width: 1200px;
-      margin: 0 auto;
-      width: 100%;
     }
 
-    .stat-item {
+    /* animated scan line */
+    .hero::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+      opacity: 0.4;
+      animation: scanH 6s linear infinite;
+    }
+
+    /* grid bg */
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    .hero-inner { position: relative; z-index: 1; animation: fadeUp 0.8s ease both; }
+
+    .hero-eyebrow {
+      font-size: 0.6rem;
+      letter-spacing: 0.4em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(1.4rem, 5vw, 3rem);
+      color: var(--accent2);
+      line-height: 1.3;
+      text-shadow: 0 0 30px var(--glow), 0 0 60px rgba(74,140,63,0.15), 3px 3px 0 #050a05;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-sub {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(0.5rem, 2vw, 0.85rem);
+      color: var(--dim);
+      letter-spacing: 0.08em;
+      margin-bottom: 2rem;
+    }
+
+    .hero-desc {
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+      color: var(--dim);
+      font-size: 0.88rem;
+      line-height: 1.7;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-block;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--r);
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 2px solid var(--accent);
+    }
+    .btn-primary:hover {
+      background: var(--accent2);
+      border-color: var(--accent2);
+      box-shadow: 0 0 20px var(--glow);
+      color: #fff;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--accent2);
+      border: 2px solid var(--border2);
+    }
+    .btn-ghost:hover {
+      border-color: var(--accent2);
+      color: var(--accent3);
+      box-shadow: 0 0 12px var(--glow2);
+    }
+
+    /* frog mascot */
+    .mascot {
+      margin: 3rem auto 0;
+      width: 48px;
+      height: 32px;
+      position: relative;
+      animation: floatY 3s ease-in-out infinite;
+    }
+    .mascot svg { width: 100%; height: 100%; filter: drop-shadow(0 0 8px var(--accent)); }
+
+    /* ── STATS ───────────────────────────────────────────────────────── */
+    .stats {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+      display: flex;
+      gap: 3rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .stat { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .stat-val {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 1rem;
+      color: var(--accent2);
+      text-shadow: 0 0 10px var(--glow);
+    }
+    .stat-lbl { font-size: 0.58rem; color: var(--dimmer); letter-spacing: 0.2em; text-transform: uppercase; }
+
+    /* ── SECTION WRAPPER ─────────────────────────────────────────────── */
+    .section { max-width: 1100px; margin: 0 auto; padding: 4rem 2rem; }
+
+    .section-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.55rem;
+      color: var(--accent);
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .section-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg, var(--border2), transparent); }
+
+    /* ── GAMES GRID ──────────────────────────────────────────────────── */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+    @media(min-width:900px){ .game-grid { grid-template-columns: repeat(3,1fr); } }
+    @media(max-width:600px){ .game-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+      position: relative;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 16px var(--glow);
+    }
+    .card::before,.card::after {
+      content:''; position:absolute; width:7px; height:7px;
+      border-color:var(--accent); border-style:solid; opacity:0; transition:opacity 0.18s;
+    }
+    .card::before { top:7px; left:7px; border-width:2px 0 0 2px; }
+    .card::after  { top:7px; right:7px; border-width:2px 2px 0 0; }
+    .card:hover::before,.card:hover::after { opacity:1; }
+
+    .thumb {
+      width:100%; aspect-ratio:16/9;
+      display:flex; align-items:center; justify-content:center;
+      position:relative; overflow:hidden;
+    }
+    .thumb-bg {
+      position:absolute; inset:0;
+      background-image:
+        linear-gradient(rgba(0,0,0,0.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.2) 1px, transparent 1px);
+      background-size:16px 16px;
+    }
+    .thumb-label {
+      position:absolute; bottom:8px; left:8px;
+      background:rgba(0,0,0,0.7); color:var(--text);
+      font-size:0.5rem; letter-spacing:0.12em;
+      padding:3px 7px; z-index:1;
+    }
+    .thumb-new {
+      position:absolute; top:8px; right:8px;
+      background:var(--accent); color:#fff;
+      font-family:'Press Start 2P',monospace;
+      font-size:0.4rem; letter-spacing:0.1em;
+      padding:3px 6px; z-index:1;
+      animation: pulse 2s ease-in-out infinite;
     }
 
-    .stat-label {
-      font-size: 0.55rem;
-      color: var(--text-dim);
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
+    .card-body { padding:1rem 1rem 0.8rem; display:flex; flex-direction:column; flex:1; gap:0.6rem; }
+    .card-title { font-family:'Press Start 2P',monospace; font-size:0.65rem; color:var(--text); line-height:1.5; }
+    .genre-tag {
+      display:inline-block; background:var(--bg3); border:1px solid var(--border2);
+      color:var(--accent2); font-size:0.58rem; letter-spacing:0.15em;
+      text-transform:uppercase; padding:2px 7px; border-radius:2px; width:fit-content;
+    }
+    .card-desc { color:var(--dim); font-size:0.78rem; line-height:1.55; flex:1; }
+    .tag-row { display:flex; flex-wrap:wrap; gap:5px; }
+    .pill {
+      background:rgba(74,140,63,0.1); border:1px solid rgba(74,140,63,0.25);
+      color:var(--dimmer); font-size:0.55rem; letter-spacing:0.1em; padding:2px 6px; border-radius:2px;
+    }
+    .card-foot { padding:0 1rem 1rem; display:flex; align-items:center; justify-content:space-between; }
+    .card-meta { font-size:0.58rem; color:var(--border2); letter-spacing:0.08em; }
+    .qa-ok { font-size:0.55rem; color:var(--accent); letter-spacing:0.08em; }
+    .qa-ok::before { content:'✔ '; }
+
+    .btn-play {
+      display:inline-block; background:var(--accent); color:#fff;
+      font-family:'Press Start 2P',monospace; font-size:0.52rem;
+      letter-spacing:0.12em; padding:0.5rem 1rem; border-radius:var(--r);
+      border:2px solid transparent; text-transform:uppercase;
+      transition:all 0.15s;
+    }
+    .btn-play::before { content:'▶ '; font-size:0.48rem; }
+    .btn-play:hover {
+      background:var(--accent2); color:#fff;
+      box-shadow:0 0 14px var(--glow); transform:scale(1.05);
     }
 
-    .stat-value {
-      font-family: 'Press Start 2P', 'Courier New', monospace;
-      font-size: 0.75rem;
+    /* ── HOW IT WORKS ────────────────────────────────────────────────── */
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-bottom: 3rem;
+    }
+
+    .pipe-step {
+      background: var(--bg2);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      position: relative;
+    }
+    .pipe-step:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--accent);
+      font-size: 0.7rem;
+      z-index: 1;
+    }
+    @media(max-width:600px){ .pipe-step:not(:last-child)::after { display:none; } }
+
+    .pipe-icon {
+      font-size: 1.4rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .pipe-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.45rem;
       color: var(--accent2);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+    .pipe-desc {
+      font-size: 0.68rem;
+      color: var(--dimmer);
+      line-height: 1.5;
     }
 
-    /* ── Footer ── */
+    /* ── TECH STACK ──────────────────────────────────────────────────── */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .tech-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.2rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .tech-card:hover { border-color: var(--accent); box-shadow: 0 0 12px var(--glow2); }
+    .tech-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.52rem;
+      color: var(--accent2);
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+    .tech-desc { font-size: 0.72rem; color: var(--dimmer); line-height: 1.5; }
+
+    /* ── ABOUT ───────────────────────────────────────────────────────── */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+    @media(max-width:700px){ .about-grid { grid-template-columns: 1fr; } }
+
+    .about-text h3 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.65rem;
+      color: var(--accent2);
+      margin-bottom: 1rem;
+      line-height: 1.6;
+    }
+    .about-text p { color: var(--dim); font-size: 0.82rem; line-height: 1.75; margin-bottom: 1rem; }
+
+    .terminal {
+      background: #060d06;
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      overflow: hidden;
+    }
+    .terminal-bar {
+      background: var(--bg3);
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width:8px; height:8px; border-radius:50%; }
+    .dot-r { background:#ff5f56; }
+    .dot-y { background:#ffbd2e; }
+    .dot-g { background:#27c93f; }
+    .terminal-title { font-size:0.6rem; color:var(--dimmer); margin-left:0.3rem; letter-spacing:0.1em; }
+    .terminal-body { padding: 1rem 1.2rem; }
+    .terminal-body pre {
+      font-size: 0.7rem;
+      line-height: 1.8;
+      color: var(--dim);
+      white-space: pre-wrap;
+    }
+    .t-g { color: var(--accent2); }
+    .t-d { color: var(--dimmer); }
+    .t-w { color: var(--text); }
+    .t-y { color: #ffbd2e; }
+
+    /* ── DIVIDER ─────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────── */
     footer {
-      margin-top: auto;
       background: var(--bg2);
       border-top: 1px solid var(--border);
-      padding: 1.5rem 1.5rem;
+      padding: 2.5rem 2rem;
       text-align: center;
     }
-
-    .footer-inner {
-      max-width: 800px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      align-items: center;
-    }
-
-    .footer-divider {
-      width: 60px;
-      height: 1px;
-      background: var(--border);
-      margin-bottom: 0.3rem;
-    }
-
-    .footer-text {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      letter-spacing: 0.12em;
-    }
-
-    .footer-sub {
-      font-size: 0.58rem;
-      color: var(--border);
-      letter-spacing: 0.08em;
-    }
-
-    /* ── Blink cursor ── */
-    @keyframes blink {
-      0%, 49% { opacity: 1; }
-      50%, 100% { opacity: 0; }
-    }
-
-    .cursor {
-      display: inline-block;
-      width: 8px;
-      height: 1em;
-      background: var(--accent2);
-      vertical-align: text-bottom;
-      animation: blink 1s step-end infinite;
-      margin-left: 3px;
-    }
-
-    /* ── QA badge ── */
-    .qa-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.55rem;
-      color: #6ab85e;
+    .footer-logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.7rem;
+      color: var(--accent);
       letter-spacing: 0.1em;
+      margin-bottom: 0.8rem;
+      display: block;
     }
-
-    .qa-badge::before {
-      content: '✔';
-      font-size: 0.6rem;
-      color: var(--accent2);
-    }
+    .footer-links { display:flex; gap:1.5rem; justify-content:center; flex-wrap:wrap; margin-bottom:1.2rem; }
+    .footer-links a { font-size:0.62rem; color:var(--dimmer); letter-spacing:0.1em; }
+    .footer-links a:hover { color:var(--accent2); }
+    .footer-copy { font-size:0.58rem; color:var(--border2); letter-spacing:0.08em; }
+    .footer-powered { font-size:0.58rem; color:var(--dimmer); letter-spacing:0.08em; margin-top:0.3rem; }
   </style>
 </head>
 <body>
 
-  <!-- ── Header ── -->
-  <header>
-    <div class="studio-logo">MOSSWITCH<span>&nbsp;</span>GAMES<span class="cursor"></span></div>
-    <div class="pixel-deco" aria-hidden="true"></div>
-    <p class="studio-tagline">Autonomous Indie Game Studio</p>
-  </header>
-
-  <!-- ── Nav ── -->
-  <nav>
-    <a href="#" class="active">Games</a>
-    <a href="#">About</a>
-    <a href="#">Blog</a>
+  <!-- NAV -->
+  <nav class="nav">
+    <span class="nav-logo">MOSSWITCH<span style="color:var(--dimmer)"> // </span>GAMES</span>
+    <div class="nav-links">
+      <a href="#games">Games</a>
+      <a href="#how">How it works</a>
+      <a href="#about">About</a>
+      <a href="https://github.com/turbosys/mosswitch-games" target="_blank">GitHub</a>
+    </div>
   </nav>
 
-  <!-- ── Stats bar ── -->
-  <div class="stats-bar">
-    <div class="stat-item">
-      <span class="stat-label">Published</span>
-      <span class="stat-value">2</span>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <p class="hero-eyebrow">// est. 2026 · autonomous indie studio</p>
+      <h1 class="hero-title">MOSSWITCH<br>GAMES<span class="cursor"></span></h1>
+      <p class="hero-sub">Where agents ship games</p>
+      <p class="hero-desc">
+        A fully autonomous game studio powered by AI agents. Every game is conceived, designed, built, QA'd, and published without human code — only direction.
+      </p>
+      <div class="hero-cta">
+        <a href="#games" class="btn btn-primary">Play Our Games</a>
+        <a href="#how" class="btn btn-ghost">How It Works</a>
+      </div>
+
+      <!-- Pixel frog mascot -->
+      <div class="mascot">
+        <svg viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- eyes bumps -->
+          <ellipse cx="11" cy="7" rx="6" ry="6" fill="#4a8c3f"/>
+          <ellipse cx="37" cy="7" rx="6" ry="6" fill="#4a8c3f"/>
+          <!-- body -->
+          <rect x="4" y="10" width="40" height="20" rx="8" fill="#4a8c3f"/>
+          <!-- belly -->
+          <rect x="12" y="16" width="24" height="12" rx="5" fill="#6ab85e" opacity="0.5"/>
+          <!-- pupils -->
+          <circle cx="11" cy="6" r="3" fill="#0a1a0a"/>
+          <circle cx="37" cy="6" r="3" fill="#0a1a0a"/>
+          <circle cx="10" cy="5" r="1" fill="#fff" opacity="0.7"/>
+          <circle cx="36" cy="5" r="1" fill="#fff" opacity="0.7"/>
+          <!-- smile -->
+          <path d="M18 23 Q24 27 30 23" stroke="#2d5a27" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">Platform</span>
-      <span class="stat-value">HTML5</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Latest</span>
-      <span class="stat-value">2026</span>
-    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><span class="stat-val">2</span><span class="stat-lbl">Games Published</span></div>
+    <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Agent Built</span></div>
+    <div class="stat"><span class="stat-val">HTML5</span><span class="stat-lbl">Platform</span></div>
+    <div class="stat"><span class="stat-val">FREE</span><span class="stat-lbl">To Play</span></div>
+    <div class="stat"><span class="stat-val">2026</span><span class="stat-lbl">Founded</span></div>
   </div>
 
-  <!-- ── Main ── -->
-  <main>
-    <h2 class="section-heading">Published Games</h2>
+  <!-- GAMES -->
+  <section class="section" id="games">
+    <h2 class="section-label">Published Games</h2>
 
     <div class="game-grid">
 
-      <!-- ── GAME 001: Dash Frog ── -->
+      <!-- DASH FROG -->
       <article class="card">
-        <div class="thumbnail">
-          <div class="thumbnail-inner" style="background-color: #2d5a27;">
-            <span class="thumb-label">DASH FROG</span>
-          </div>
+        <div class="thumb" style="background:#1a3a1a;">
+          <div class="thumb-bg"></div>
+          <span class="thumb-label">DASH FROG</span>
+          <span class="thumb-new">NEW</span>
         </div>
-
         <div class="card-body">
           <h3 class="card-title">DASH FROG</h3>
           <span class="genre-tag">Endless Runner</span>
@@ -531,28 +566,25 @@
           <div class="tag-row">
             <span class="pill">mobile</span>
             <span class="pill">arcade</span>
-            <span class="pill">html5</span>
             <span class="pill">one-button</span>
+            <span class="pill">phaser3</span>
           </div>
         </div>
-
-        <div class="card-footer">
+        <div class="card-foot">
           <div>
-            <div class="card-meta">2026-04-01 &nbsp;·&nbsp; #001</div>
-            <div class="qa-badge">QA PASSED</div>
+            <div class="card-meta">2026-04-01 · #001</div>
+            <div class="qa-ok">QA Passed</div>
           </div>
-          <a class="btn-play" href="../games/game-001/index.html">PLAY</a>
+          <a class="btn-play" href="games/game-001/index.html">PLAY</a>
         </div>
       </article>
 
-      <!-- ── DEPTH ── -->
+      <!-- DEPTH -->
       <article class="card">
-        <div class="thumbnail">
-          <div class="thumbnail-inner" style="background-color: #000d1a;">
-            <span class="thumb-label">DEPTH</span>
-          </div>
+        <div class="thumb" style="background:#000d1a;">
+          <div class="thumb-bg" style="opacity:0.4;"></div>
+          <span class="thumb-label">DEPTH</span>
         </div>
-
         <div class="card-body">
           <h3 class="card-title">DEPTH</h3>
           <span class="genre-tag">Diving / Arcade</span>
@@ -560,29 +592,149 @@
           <div class="tag-row">
             <span class="pill">mobile</span>
             <span class="pill">one-button</span>
-            <span class="pill">html5</span>
-            <span class="pill">arcade</span>
+            <span class="pill">phaser3</span>
+            <span class="pill">typescript</span>
           </div>
         </div>
-
-        <div class="card-footer">
+        <div class="card-foot">
           <div>
-            <div class="card-meta">2026-03-28 &nbsp;·&nbsp; #002</div>
+            <div class="card-meta">2026-03-28 · #002</div>
           </div>
           <a class="btn-play" href="games/depth/index.html">PLAY</a>
         </div>
       </article>
 
     </div>
-  </main>
+  </section>
 
-  <!-- ── Footer ── -->
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-divider"></div>
-      <p class="footer-text">Powered by Claude Code &middot; Games generated autonomously</p>
-      <p class="footer-sub">&copy; 2026 MOSSWITCH GAMES &nbsp;&bull;&nbsp; All games made with pixels &amp; swamp magic</p>
+  <hr class="divider">
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how">
+    <h2 class="section-label">How It Works</h2>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <span class="pipe-icon">🎯</span>
+        <div class="pipe-name">Director</div>
+        <div class="pipe-desc">Picks genre, concept, and aesthetic from the queue</div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-icon">📐</span>
+        <div class="pipe-name">Designer</div>
+        <div class="pipe-desc">Writes rules, entities, difficulty curve, and screens</div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-icon">🎨</span>
+        <div class="pipe-name">Art Agent</div>
+        <div class="pipe-desc">Generates sprites, promo art &amp; thumbnails via Replicate</div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-icon">🔨</span>
+        <div class="pipe-name">Builder</div>
+        <div class="pipe-desc">Writes the complete Phaser 3 game in a single HTML file</div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-icon">✅</span>
+        <div class="pipe-name">QA</div>
+        <div class="pipe-desc">Static analysis + smoke tests. Fixes bugs before publish</div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-icon">🚀</span>
+        <div class="pipe-name">Publisher</div>
+        <div class="pipe-desc">Pushes to GitHub Pages and updates this portal</div>
+      </div>
     </div>
+
+    <h2 class="section-label" style="margin-top:3rem;">Tech Stack</h2>
+
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-name">Claude Code</div>
+        <div class="tech-desc">Orchestrates all agents. Director, Designer, Builder, QA, and Publisher are all Claude sub-agents running autonomously.</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-name">Phaser 3</div>
+        <div class="tech-desc">HTML5 game framework. All games are single self-contained files — no build step, no npm, deploys anywhere.</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-name">Replicate</div>
+        <div class="tech-desc">AI image and video generation. Used for sprites, promo art, thumbnails, and marketing materials.</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-name">GitHub Pages</div>
+        <div class="tech-desc">Free hosting. Every game gets a live URL automatically on push. Zero infrastructure overhead.</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-name">TypeScript + Vite</div>
+        <div class="tech-desc">Used for more complex games like DEPTH that need a proper build pipeline and module system.</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-name">Web Audio API</div>
+        <div class="tech-desc">Procedural 8-bit sound effects generated at runtime. No audio files, no licensing — pure code.</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ABOUT -->
+  <section class="section" id="about">
+    <h2 class="section-label">About the Studio</h2>
+
+    <div class="about-grid">
+      <div class="about-text">
+        <h3>Games made by agents,<br>for humans.</h3>
+        <p>Mosswitch Games is an experiment in fully autonomous game development. Every game is designed, written, tested, and shipped by AI agents — no human writes a single line of game code.</p>
+        <p>The studio runs on a pipeline of specialized agents: a Director that picks concepts, a Designer that defines rules, an Art Agent that generates visuals, a Builder that writes the game, a QA agent that finds bugs, and a Publisher that ships it.</p>
+        <p>All games are mobile-first, browser-based, and free to play. Our goal: prove that a complete game studio can run on pure automation.</p>
+        <p style="color:var(--accent2); font-size:0.78rem;">Built with <a href="https://claude.ai/code" target="_blank">Claude Code</a> by turbosys.</p>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+          <span class="terminal-title">studio/pipeline.log</span>
+        </div>
+        <div class="terminal-body">
+          <pre><span class="t-g">$</span> <span class="t-w">new-game.sh</span>
+
+<span class="t-d">== MOSSWITCH GAMES ==</span>
+<span class="t-d">Genre: tap-platformer</span>
+
+<span class="t-g">[DIRECTOR]</span> <span class="t-d">Concept selected...</span>
+<span class="t-g">[DESIGNER]</span> <span class="t-d">Writing design.md...</span>
+<span class="t-g">[ART]</span>     <span class="t-d">Generating sprites...</span>
+<span class="t-y">  → replicate: ideogram-v3-turbo</span>
+<span class="t-y">  → saved: hero.png (612 KB)</span>
+<span class="t-g">[BUILDER]</span> <span class="t-d">Writing index.html...</span>
+<span class="t-g">[QA]</span>      <span class="t-d">Running checks...</span>
+<span class="t-g">  ✔</span> <span class="t-d">viewport meta</span>
+<span class="t-g">  ✔</span> <span class="t-d">touch input</span>
+<span class="t-g">  ✔</span> <span class="t-d">game over state</span>
+<span class="t-g">  ✔</span> <span class="t-d">10/10 passed</span>
+<span class="t-g">[PUBLISH]</span> <span class="t-d">Pushing to GitHub...</span>
+<span class="t-g">  ✔</span> <span class="t-d">Live: turbosys.github.io/...</span>
+
+<span class="t-g">PIPELINE COMPLETE</span><span class="cursor"></span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-logo">MOSSWITCH GAMES</span>
+    <div class="footer-links">
+      <a href="https://github.com/turbosys/mosswitch-games" target="_blank">GitHub</a>
+      <a href="#games">Games</a>
+      <a href="#how">Pipeline</a>
+      <a href="#about">About</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 Mosswitch Games &nbsp;·&nbsp; All games generated autonomously</p>
+    <p class="footer-powered">Powered by <a href="https://claude.ai/code" target="_blank">Claude Code</a> &nbsp;·&nbsp; Art by <a href="https://replicate.com" target="_blank">Replicate</a></p>
   </footer>
 
 </body>
