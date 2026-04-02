@@ -309,7 +309,7 @@ class GameScene extends Phaser.Scene {
 
     // Obstacles (depth 4)
     this.obstacles = this.physics.add.group();
-    this.physics.add.overlap(this.frog, this.obstacles, () => this.die());
+    this.physics.add.overlap(this.frog, this.obstacles, () => { this.die(); });
 
     // Particles (Phaser 3.60 API: emitting:false instead of on:false)
     this.dustEmitter = this.add.particles(0, 0, 'pdust', {
@@ -399,7 +399,7 @@ class GameScene extends Phaser.Scene {
     const isLog = Phaser.Math.Between(0, 10) < 6;
     let obs;
     if (isLog) {
-      obs = this.obstacles.create(W+20, GY-40, 'log').setOrigin(0.5,1).setDepth(4);
+      obs = this.obstacles.create(W+20, GY, 'log').setOrigin(0.5,1).setDepth(4);
       obs.body.setAllowGravity(false).setImmovable(true).setSize(18,36).setOffset(1,4);
     } else {
       const batY = GY - 32 - 32 - 8;
