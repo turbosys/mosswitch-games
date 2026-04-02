@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>SPORE HOP</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #020d0a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script>
+const W = Math.min(window.innerWidth, 480);
+const H = Math.min(window.innerHeight, 720);
+
+// Strip dark/black background from an image, rescale to targetSize, return canvas
+function stripDarkBg(img, targetSize = 68, threshold = 15) {
+  const cv = document.createElement('canvas');
+  cv.width = targetSize; cv.height = targetSize;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0, targetSize, targetSize);
+  const d = ctx.getImageData(0, 0, targetSize, targetSize);
+  for (let i = 0; i < d.data.length; i += 4) {
+    if (d.data[i] < threshold && d.data[i+1] < threshold && d.data[i+2] < threshold)
+      d.data[i+3] = 0;
+  }
+  ctx.putImageData(d, 0, 0);
+  return cv;
+}
+
+// --- Web Audio sound engine ---
+let _audioCtx = null;
+function getAudio() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+function playTone(freq, type, duration, gain, startFreq) {
+  try {
+    const ac = getAudio();
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.connect(g); g.connect(ac.destination);
+    osc.type = type;
+    if (startFreq) {
+      osc.frequency.setValueAtTime(startFreq, ac.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq, ac.currentTime + duration * 0.7);
+    } else {
+      osc.frequency.setValueAtTime(freq, ac.currentTime);
+    }
+    g.gain.setValueAtTime(gain, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+    osc.start(ac.currentTime);
+    osc.stop(ac.currentTime + duration);
+  } catch(e) {}
+}
+function sfxJump()    { playTone(520, 'square', 0.12, 0.18, 220); }
+function sfxLand()    { playTone(90,  'sine',   0.08, 0.22); }
+function sfxCollect() { playTone(880, 'sine',   0.12, 0.14, 660); }
+function sfxDie() {
+  playTone(220, 'sawtooth', 0.18, 0.2, 440);
+  setTimeout(() => playTone(110, 'sawtooth', 0.28, 0.18, 220), 180);
+}
+
+// ---- CONFIG ----
+const PLAT_W = 88, PLAT_H = 16;
+const GRAVITY = 900;
+const JUMP_VY = -560;
+const BASE_SCROLL = 100;
+const PLAT_GAP_MAX = 130; // max horizontal gap between platforms
+const PLAT_GAP_MIN = 80;
+
+class BootScene extends Phaser.Scene {
+  constructor() { super('Boot'); }
+  preload() {
+    this.load.image('bg', 'assets/bg.webp');
+    this.load.image('frog_raw', 'assets/frog.webp');
+    this.load.image('platform', 'assets/platform.webp');
+    this.load.image('mycelia_raw', 'assets/mycelia.webp');
+  }
+  create() {
+    const frogImg = this.textures.get('frog_raw').getSourceImage();
+    this.textures.addCanvas('frog', stripDarkBg(frogImg, 68, 15));
+    const platImg = this.textures.get('platform').getSourceImage();
+    this.textures.addCanvas('platform_clean', stripDarkBg(platImg, platImg.width, 28));
+    const myceliaImg = this.textures.get('mycelia_raw').getSourceImage();
+    this.textures.addCanvas('mycelia', stripDarkBg(myceliaImg, 38, 18));
+    this.scene.start('Game');
+  }
+}
+
+class GameScene extends Phaser.Scene {
+  constructor() { super('Game'); }
+
+  create() {
+    this.scrollSpeed = BASE_SCROLL;
+    this.score = 0;
+    this.alive = true;
+    this.started = false;
+    this.highScore = parseInt(localStorage.getItem('spore_hop_hs') || '0');
+    this.elapsed = 0;
+
+    // Background — tiled to fill canvas
+    const bgTex = this.textures.get('bg');
+    const bgW = bgTex.getSourceImage().width;
+    const bgH = bgTex.getSourceImage().height;
+    // Fill canvas with bg, allow repeat
+    this.bg1 = this.add.image(0, 0, 'bg').setOrigin(0, 0).setDisplaySize(W, H);
+    this.bg2 = this.add.image(W, 0, 'bg').setOrigin(0, 0).setDisplaySize(W, H);
+
+    // Ambient glow particles (decorative only, not collected)
+    for (let i = 0; i < 8; i++) {
+      const dot = this.add.circle(Phaser.Math.Between(0,W), Phaser.Math.Between(20,H-20),
+        Phaser.Math.Between(2,4), 0x39ff8a, Phaser.Math.FloatBetween(0.3,0.7)).setDepth(1);
+      this.tweens.add({ targets: dot, alpha: 0.05, duration: Phaser.Math.Between(900,1800), yoyo: true, repeat: -1 });
+    }
+
+    // Platforms
+    this.platGroup = this.add.group();
+    // Place first platform right under player start
+    const PLAYER_X = Math.round(W * 0.22);
+    const startY = Math.round(H * 0.65);
+    this._addPlatform(PLAYER_X, startY);
+    // Fill screen with platforms
+    let lastX = PLAYER_X, lastY = startY;
+    while (lastX < W + PLAT_W) {
+      const gap = Phaser.Math.Between(PLAT_GAP_MIN, PLAT_GAP_MAX);
+      const dy = Phaser.Math.Between(-80, 80);
+      lastX += gap + PLAT_W;
+      lastY = Phaser.Math.Clamp(lastY + dy, H * 0.2, H * 0.82);
+      this._addPlatform(lastX, lastY);
+    }
+    this.nextPlatX = lastX;
+    this.nextPlatY = lastY;
+
+    // Player — fixed X, moves only vertically
+    this.px = PLAYER_X;
+    this.py = startY - PLAT_H / 2 - 30;
+    this.vy = 0;
+    this.jumpsLeft = 2;
+    this.onGround = true;
+
+    // Draw player using the cleaned-up frog texture
+    this.playerSprite = this.add.image(this.px, this.py, 'frog'); // texture is pre-scaled to 40x40
+
+    // Input
+    this.input.on('pointerdown', () => this._doJump());
+    this.input.keyboard.on('keydown-SPACE', () => this._doJump());
+    this.input.keyboard.on('keydown-UP', () => this._doJump());
+
+    // UI — score
+    this.scoreTxt = this.add.text(8, 8, 'SCORE 0', {
+      fontFamily: '"Press Start 2P"', fontSize: '8px', fill: '#39ff8a',
+      stroke: '#000000', strokeThickness: 3
+    }).setDepth(10);
+    this.hsTxt = this.add.text(W - 8, 8, 'BEST ' + this.highScore, {
+      fontFamily: '"Press Start 2P"', fontSize: '8px', fill: '#39ff8a',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(1, 0).setDepth(10);
+    this.titleTxt = this.add.text(W / 2, 8, 'SPORE HOP', {
+      fontFamily: '"Press Start 2P"', fontSize: '8px', fill: '#afffcf',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5, 0).setDepth(10);
+
+    // Start prompt
+    this.promptTxt = this.add.text(W / 2, H / 2 - 20, 'TAP TO START', {
+      fontFamily: '"Press Start 2P"', fontSize: '11px', fill: '#ffffff',
+      stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(10);
+    this.tweens.add({ targets: this.promptTxt, alpha: 0.1, duration: 550, yoyo: true, repeat: -1 });
+
+    // Jump squash tween placeholder
+    this.squashTween = null;
+  }
+
+  _addPlatform(x, y) {
+    const maxOff = (PLAT_W / 2) - 8;
+    const pickupOffset = Phaser.Math.Between(-maxOff, maxOff);
+
+    // Platform image
+    const img = this.add.image(x, y + 4, 'platform_clean').setDisplaySize(PLAT_W + 10, 30).setDepth(3);
+
+    // Invisible collision rect
+    const p = this.add.rectangle(x, y, PLAT_W, PLAT_H, 0x000000, 0).setDepth(3);
+
+    // Mycelia cluster — planted on the platform surface, base at platform top
+    const mx = x + pickupOffset;
+    const platTop = y - PLAT_H / 2;
+    const pickup = this.add.image(mx, platTop, 'mycelia')
+      .setOrigin(0.5, 1)        // base anchored to platform top
+      .setDisplaySize(28, 36)
+      .setDepth(7);
+    // Gentle sway
+    this.tweens.add({ targets: pickup, angle: 4, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    p._img = img;
+    p._pickup = pickup;
+    p._pickupX = mx;
+    p._pickupTopY = platTop - 18; // centre of the cluster for collision
+    p._collected = false;
+    this.platGroup.add(p);
+    return p;
+  }
+
+  _doJump() {
+    if (!this.alive) { this.scene.restart(); return; }
+    if (!this.started) {
+      this.started = true;
+      this.promptTxt.setVisible(false);
+    }
+    if (this.jumpsLeft > 0) {
+      this.vy = JUMP_VY;
+      this.jumpsLeft--;
+      this.onGround = false;
+      sfxJump();
+      if (this.squashTween) this.squashTween.stop();
+      this.squashTween = this.tweens.add({
+        targets: this.playerSprite, scaleX: 0.65, scaleY: 1.35, duration: 70, yoyo: true
+      });
+    }
+  }
+
+  update(time, delta) {
+    if (!this.started || !this.alive) return;
+    const dt = delta / 1000;
+    this.elapsed += dt;
+
+    // Gradually increase speed
+    this.scrollSpeed = BASE_SCROLL + Math.floor(this.elapsed / 8) * 18;
+    const spd = this.scrollSpeed;
+
+    // Scroll background
+    this.bg1.x -= spd * dt * 0.3;
+    this.bg2.x = this.bg1.x + W;
+    if (this.bg1.x <= -W) { this.bg1.x = this.bg2.x; this.bg2.x = this.bg1.x + W; }
+
+    // Scroll platforms & decorations
+    const plats = this.platGroup.getChildren();
+    for (let i = plats.length - 1; i >= 0; i--) {
+      const p = plats[i];
+      const dx = spd * dt;
+      p.x -= dx;
+      if (p._img) p._img.x -= dx;
+      if (p._pickup && !p._collected) { p._pickup.x -= dx; p._pickupX -= dx; p._pickupTopY = p._pickupTopY; }
+      if (p.x < -PLAT_W - 10) {
+        if (p._img) p._img.destroy();
+        if (p._pickup) p._pickup.destroy();
+        p.destroy();
+        this.platGroup.remove(p);
+      }
+    }
+
+    // Spawn new platforms off right edge
+    while (this.nextPlatX < W + PLAT_W * 2) {
+      const gap = Phaser.Math.Between(PLAT_GAP_MIN, PLAT_GAP_MAX);
+      const dy = Phaser.Math.Between(-90, 90);
+      this.nextPlatX += gap + PLAT_W;
+      this.nextPlatY = Phaser.Math.Clamp(this.nextPlatY + dy, H * 0.18, H * 0.85);
+      this._addPlatform(this.nextPlatX, this.nextPlatY);
+    }
+    this.nextPlatX -= spd * dt;
+
+    // Player physics
+    this.vy += GRAVITY * dt;
+    this.py += this.vy * dt;
+
+    // Platform collision (only when falling)
+    this.onGround = false;
+    if (this.vy >= 0) {
+      for (const p of this.platGroup.getChildren()) {
+        const px_left = p.x - PLAT_W / 2 - 14;
+        const px_right = p.x + PLAT_W / 2 + 14;
+        const pt = p.y - PLAT_H / 2;
+        const pb = p.y + PLAT_H / 2;
+        if (this.px > px_left && this.px < px_right &&
+            this.py + 28 >= pt && this.py + 28 <= pb + 20) {
+          this.py = pt - 28;
+          this.vy = 0;
+          if (!this.onGround) sfxLand();
+          this.onGround = true;
+          this.jumpsLeft = 2;
+          break;
+        }
+      }
+    }
+
+    // Mycelia pickup collision — check every frame
+    for (const p of this.platGroup.getChildren()) {
+      if (!p._collected && p._pickup) {
+        const dist = Math.sqrt(Math.pow(this.px - p._pickupX, 2) + Math.pow(this.py - p._pickupTopY, 2));
+        if (dist < 26) {
+          p._collected = true;
+          sfxCollect();
+          this.score++;
+          this.scoreTxt.setText('SCORE ' + this.score);
+          this.tweens.add({ targets: this.scoreTxt, scaleX: 1.3, scaleY: 1.3, duration: 80, yoyo: true });
+          // Burst: scale up and fade out
+          this.tweens.killTweensOf(p._pickup);
+          this.tweens.add({ targets: p._pickup, scaleX: 2.5, scaleY: 2.5, alpha: 0, duration: 280, ease: 'Cubic.easeOut',
+            onComplete: () => { if (p._pickup) p._pickup.destroy(); p._pickup = null; }
+          });
+        }
+      }
+    }
+
+    this.playerSprite.x = this.px;
+    this.playerSprite.y = this.py;
+
+    // Flip frog to face right always (could flip on fall)
+    this.playerSprite.setFlipY(this.vy > 200);
+
+    // Die if below screen
+    if (this.py > H + 80) this._die();
+  }
+
+  _die() {
+    this.alive = false;
+    sfxDie();
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      localStorage.setItem('spore_hop_hs', this.highScore);
+    }
+    // Darken
+    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.65).setDepth(20);
+    this.add.text(W / 2, H / 2 - 50, 'GAME OVER', {
+      fontFamily: '"Press Start 2P"', fontSize: '16px', fill: '#ff4466',
+      stroke: '#000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(21);
+    this.add.text(W / 2, H / 2, 'SCORE: ' + this.score, {
+      fontFamily: '"Press Start 2P"', fontSize: '10px', fill: '#ffffff',
+      stroke: '#000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(21);
+    this.add.text(W / 2, H / 2 + 26, 'BEST: ' + this.highScore, {
+      fontFamily: '"Press Start 2P"', fontSize: '9px', fill: '#39ff8a',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(21);
+    const retry = this.add.text(W / 2, H / 2 + 58, 'TAP TO RETRY', {
+      fontFamily: '"Press Start 2P"', fontSize: '9px', fill: '#ffdd00',
+      stroke: '#000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(21);
+    this.tweens.add({ targets: retry, alpha: 0.1, duration: 450, yoyo: true, repeat: -1 });
+  }
+}
+
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: W, height: H,
+  backgroundColor: '#030f0a',
+  scene: [BootScene, GameScene],
+  parent: document.body,
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
+});
+</script>
+</body>
+</html>
