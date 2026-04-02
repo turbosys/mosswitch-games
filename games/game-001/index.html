@@ -69,6 +69,12 @@ class BootScene extends Phaser.Scene {
     for (let f = 0; f < 4; f++) this._frogFrame(g, f * 32, f);
     g.generateTexture('frog_sheet', 128, 32);
     g.destroy();
+    // Register individual frames (generateTexture only creates the base image)
+    const ft = this.textures.get('frog_sheet');
+    ft.add(0, 0,  0, 0, 32, 32);
+    ft.add(1, 0, 32, 0, 32, 32);
+    ft.add(2, 0, 64, 0, 32, 32);
+    ft.add(3, 0, 96, 0, 32, 32);
   }
 
   _frogFrame(g, ox, frame) {
@@ -121,6 +127,9 @@ class BootScene extends Phaser.Scene {
     this._batFrame(g, 36, true);  // wings down
     g.generateTexture('bat_sheet', 72, 18);
     g.destroy();
+    const bt = this.textures.get('bat_sheet');
+    bt.add(0, 0,  0, 0, 36, 18);
+    bt.add(1, 0, 36, 0, 36, 18);
   }
 
   _batFrame(g, ox, down) {
