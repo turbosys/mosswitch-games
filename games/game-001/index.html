@@ -18,323 +18,236 @@ const H = Math.round(W * (640 / 480));
 const GY = H - 60;
 
 const P = {
-  sky1:         0x0d1a0d,
-  sky2:         0x060d06,
-  ground:       0x2d5a27,
-  groundTop:    0x3d7a32,
-  groundShadow: 0x1a4a18,
-  frog:         0x4a8c3f,
-  frogLight:    0x6ab85e,
-  frogDark:     0x2d5a27,
-  frogBelly:    0x8fd67f,
-  log:          0x5d4037,
-  logDark:      0x3e2723,
-  logLight:     0x6d4c41,
-  bat:          0x4a148c,
-  batWing:      0x7b1fa2,
-  batDark:      0x2d0057,
-  tree:         0x1a3d18,
-  treeDark:     0x0f2410,
-  reed:         0x2d6b27,
-  moon:         0xd4e8a0,
-  star:         0x8bc34a,
-  accent:       0x8bc34a,
+  sky1: 0x0d1a0d, sky2: 0x060d06,
+  ground: 0x2d5a27, groundTop: 0x3d7a32, groundShadow: 0x1a4a18,
+  frog: 0x4a8c3f, frogLight: 0x6ab85e, frogDark: 0x2d5a27, frogBelly: 0x8fd67f,
+  log: 0x5d4037, logDark: 0x3e2723, logLight: 0x6d4c41,
+  bat: 0x4a148c, batWing: 0x7b1fa2, batDark: 0x2d0057,
+  tree: 0x1a3d18, treeDark: 0x0f2410, reed: 0x2d6b27,
+  moon: 0xd4e8a0, star: 0x8bc34a, accent: 0x8bc34a,
 };
 
 // ── AUDIO ─────────────────────────────────────────────────────────────────────
 let audioCtx;
-function beep(freq = 440, dur = 0.08, type = 'square') {
+function beep(freq = 440, dur = 0.08) {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
-    o.frequency.value = freq; o.type = type;
+    o.frequency.value = freq; o.type = 'square';
     g.gain.setValueAtTime(0.12, audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     o.start(); o.stop(audioCtx.currentTime + dur);
   } catch (e) {}
 }
 
-// ── PRELOAD SCENE ─────────────────────────────────────────────────────────────
-// Generates all textures and defines all animations before the game starts.
-class PreloadScene extends Phaser.Scene {
-  constructor() { super('Preload'); }
+// ── BOOT SCENE — generates all textures ──────────────────────────────────────
+class BootScene extends Phaser.Scene {
+  constructor() { super('Boot'); }
 
   create() {
-    this._buildFrogSheet();
-    this._buildBatSheet();
-    this._buildLog();
-    this._buildParticles();
-    this._buildBgMid();
-    this._buildBgFore();
+    this._makeFrogSheet();
+    this._makeBatSheet();
+    this._makeLog();
+    this._makeParticles();
+    this._makeBgMid();
+    this._makeBgFore();
 
-    // Frog animations
-    this.anims.create({
-      key: 'frog_run',
-      frames: this.anims.generateFrameNumbers('frog_sheet', { start: 0, end: 1 }),
-      frameRate: 9, repeat: -1
-    });
-    this.anims.create({
-      key: 'frog_jump',
-      frames: this.anims.generateFrameNumbers('frog_sheet', { frames: [2] }),
-      frameRate: 1, repeat: 0
-    });
-    this.anims.create({
-      key: 'frog_dead',
-      frames: this.anims.generateFrameNumbers('frog_sheet', { frames: [3] }),
-      frameRate: 1, repeat: 0
-    });
-
-    // Bat animation
-    this.anims.create({
-      key: 'bat_flap',
-      frames: this.anims.generateFrameNumbers('bat_sheet', { start: 0, end: 1 }),
-      frameRate: 8, repeat: -1
-    });
+    this.anims.create({ key: 'frog_run',  frames: this.anims.generateFrameNumbers('frog_sheet', { start: 0, end: 1 }), frameRate: 9,  repeat: -1 });
+    this.anims.create({ key: 'frog_jump', frames: this.anims.generateFrameNumbers('frog_sheet', { start: 2, end: 2 }), frameRate: 1,  repeat:  0 });
+    this.anims.create({ key: 'frog_dead', frames: this.anims.generateFrameNumbers('frog_sheet', { start: 3, end: 3 }), frameRate: 1,  repeat:  0 });
+    this.anims.create({ key: 'bat_flap',  frames: this.anims.generateFrameNumbers('bat_sheet',  { start: 0, end: 1 }), frameRate: 8,  repeat: -1 });
 
     this.scene.start('Game');
   }
 
-  // ── Frog spritesheet: 128×32, four 32×32 frames ───────────────────────────
-  // Frame 0: run A  Frame 1: run B  Frame 2: jump  Frame 3: dead
-  _buildFrogSheet() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    for (let f = 0; f < 4; f++) this._drawFrog(g, f * 32, 0, f);
+  _g() { return this.make.graphics({ x: 0, y: 0, add: false }); }
+
+  // Frog spritesheet 128×32  (4 frames × 32×32)
+  _makeFrogSheet() {
+    const g = this._g();
+    for (let f = 0; f < 4; f++) this._frogFrame(g, f * 32, f);
     g.generateTexture('frog_sheet', 128, 32);
     g.destroy();
   }
 
-  _drawFrog(g, ox, oy, frame) {
+  _frogFrame(g, ox, frame) {
     const { frog: F, frogLight: FL, frogDark: FD, frogBelly: FB } = P;
-
     if (frame === 3) {
-      // Dead — upside-down, X eyes, legs in air
-      g.fillStyle(F);       g.fillRoundedRect(ox + 4, oy + 5, 24, 18, 5);
-      g.fillStyle(FB);      g.fillRoundedRect(ox + 8, oy + 7, 16, 11, 4);
-      g.fillStyle(FD);      g.fillRect(ox + 8, oy + 5, 16, 4);
-      // Eye bumps at bottom
-      g.fillStyle(FL);      g.fillCircle(ox + 9, oy + 26, 5);
-                            g.fillCircle(ox + 23, oy + 26, 5);
-      g.fillStyle(0xffffff); g.fillCircle(ox + 9, oy + 25, 3);
-                            g.fillCircle(ox + 23, oy + 25, 3);
-      // X eyes
+      // Dead: belly-up, x-eyes, legs in air
+      g.fillStyle(F);   g.fillRoundedRect(ox+4, 5, 24, 18, 5);
+      g.fillStyle(FB);  g.fillRoundedRect(ox+8, 7, 16, 11, 4);
+      g.fillStyle(FD);  g.fillRect(ox+8, 5, 16, 4);
+      g.fillStyle(FL);  g.fillCircle(ox+9, 26, 5); g.fillCircle(ox+23, 26, 5);
+      g.fillStyle(0xffffff); g.fillCircle(ox+9, 25, 3); g.fillCircle(ox+23, 25, 3);
+      // X eyes (two crossing rects per eye)
       g.fillStyle(0x222222);
-      g.fillRect(ox + 6,  oy + 23, 2, 2); g.fillRect(ox + 9,  oy + 26, 2, 2); g.fillRect(ox + 7,  oy + 26, 2, 2); g.fillRect(ox + 8,  oy + 23, 2, 2);
-      g.fillRect(ox + 20, oy + 23, 2, 2); g.fillRect(ox + 23, oy + 26, 2, 2); g.fillRect(ox + 21, oy + 26, 2, 2); g.fillRect(ox + 22, oy + 23, 2, 2);
+      g.fillRect(ox+6,23,6,2); g.fillRect(ox+8,21,2,6);
+      g.fillRect(ox+20,23,6,2); g.fillRect(ox+22,21,2,6);
       // Legs pointing up
-      g.fillStyle(FD);
-      g.fillRect(ox + 4,  oy + 1, 8, 6);
-      g.fillRect(ox + 20, oy + 1, 8, 6);
-      g.fillStyle(F);
-      g.fillRect(ox + 2,  oy + 1, 10, 3);
-      g.fillRect(ox + 20, oy + 1, 10, 3);
+      g.fillStyle(FD); g.fillRect(ox+4,1,8,7);  g.fillRect(ox+20,1,8,7);
+      g.fillStyle(F);  g.fillRect(ox+2,1,10,3); g.fillRect(ox+20,1,10,3);
       return;
     }
-
-    // Shared upper body (frames 0–2)
-    g.fillStyle(F);        g.fillRoundedRect(ox + 4, oy + 8, 24, 18, 5);
-    g.fillStyle(FB);       g.fillRoundedRect(ox + 8, oy + 14, 16, 10, 4);
-    g.fillStyle(FD);       g.fillRect(ox + 8, oy + 8, 16, 4);
+    // Shared body for frames 0–2
+    g.fillStyle(F);  g.fillRoundedRect(ox+4, 8, 24, 18, 5);
+    g.fillStyle(FB); g.fillRoundedRect(ox+8,14, 16, 10, 4);
+    g.fillStyle(FD); g.fillRect(ox+8, 8, 16, 4);
     // Spots
-    g.fillStyle(FD);       g.fillCircle(ox + 12, oy + 14, 2);
-                           g.fillCircle(ox + 20, oy + 14, 2);
+    g.fillStyle(FD); g.fillCircle(ox+12,14,2); g.fillCircle(ox+20,14,2);
     // Eye bumps
-    g.fillStyle(FL);       g.fillCircle(ox + 9,  oy + 7, 5);
-                           g.fillCircle(ox + 23, oy + 7, 5);
-    g.fillStyle(0xffffff); g.fillCircle(ox + 9,  oy + 6, 3);
-                           g.fillCircle(ox + 23, oy + 6, 3);
-    g.fillStyle(0x111111); g.fillCircle(ox + 9,  oy + 6, 2);
-                           g.fillCircle(ox + 23, oy + 6, 2);
-    g.fillStyle(0xffffff); g.fillCircle(ox + 8,  oy + 5, 1);
-                           g.fillCircle(ox + 22, oy + 5, 1);
-    g.fillStyle(FD);       g.fillCircle(ox + 13, oy + 11, 1);
-                           g.fillCircle(ox + 19, oy + 11, 1);
-
+    g.fillStyle(FL);      g.fillCircle(ox+9, 7,5); g.fillCircle(ox+23,7,5);
+    g.fillStyle(0xffffff); g.fillCircle(ox+9, 6,3); g.fillCircle(ox+23,6,3);
+    g.fillStyle(0x111111); g.fillCircle(ox+9, 6,2); g.fillCircle(ox+23,6,2);
+    g.fillStyle(0xffffff); g.fillCircle(ox+8, 5,1); g.fillCircle(ox+22,5,1);
+    g.fillStyle(FD);       g.fillCircle(ox+13,11,1); g.fillCircle(ox+19,11,1);
+    // Legs — frame-specific
     if (frame === 0) {
-      // Run A: left leg forward/down, right leg back
-      g.fillStyle(FD); g.fillRect(ox + 4,  oy + 22, 7, 7);
-                       g.fillRect(ox + 21, oy + 22, 7, 5);
-      g.fillStyle(F);  g.fillRect(ox + 1,  oy + 27, 11, 4);
-                       g.fillRect(ox + 20, oy + 25, 9,  3);
+      g.fillStyle(FD); g.fillRect(ox+4,22,7,7); g.fillRect(ox+21,22,7,5);
+      g.fillStyle(F);  g.fillRect(ox+1,27,11,4); g.fillRect(ox+20,25,9,3);
     } else if (frame === 1) {
-      // Run B: right leg forward/down, left leg back
-      g.fillStyle(FD); g.fillRect(ox + 4,  oy + 22, 7, 5);
-                       g.fillRect(ox + 21, oy + 22, 7, 7);
-      g.fillStyle(F);  g.fillRect(ox + 1,  oy + 25, 9,  3);
-                       g.fillRect(ox + 20, oy + 27, 11, 4);
-    } else {
-      // Jump: legs tucked up and in
-      g.fillStyle(FD); g.fillRect(ox + 5,  oy + 20, 8, 6);
-                       g.fillRect(ox + 19, oy + 20, 8, 6);
-      g.fillStyle(F);  g.fillRect(ox + 3,  oy + 24, 10, 5);
-                       g.fillRect(ox + 19, oy + 24, 10, 5);
+      g.fillStyle(FD); g.fillRect(ox+4,22,7,5); g.fillRect(ox+21,22,7,7);
+      g.fillStyle(F);  g.fillRect(ox+1,25,9,3); g.fillRect(ox+20,27,11,4);
+    } else { // jump
+      g.fillStyle(FD); g.fillRect(ox+5,20,8,7); g.fillRect(ox+19,20,8,7);
+      g.fillStyle(F);  g.fillRect(ox+3,25,10,5); g.fillRect(ox+19,25,10,5);
     }
   }
 
-  // ── Bat spritesheet: 72×18, two 36×18 frames ─────────────────────────────
-  // Frame 0: wings raised  Frame 1: wings swept down
-  _buildBatSheet() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    this._drawBat(g, 0,  0, false);
-    this._drawBat(g, 36, 0, true);
+  // Bat spritesheet 72×18  (2 frames × 36×18)
+  _makeBatSheet() {
+    const g = this._g();
+    this._batFrame(g, 0,  false); // wings up
+    this._batFrame(g, 36, true);  // wings down
     g.generateTexture('bat_sheet', 72, 18);
     g.destroy();
   }
 
-  _drawBat(g, ox, oy, wingsDown) {
+  _batFrame(g, ox, down) {
     const { bat: B, batWing: BW, batDark: BD } = P;
-
-    if (wingsDown) {
-      g.fillStyle(BW);
-      g.fillTriangle(ox + 11, oy + 6, ox + 0,  oy + 15, ox + 8,  oy + 17);
-      g.fillTriangle(ox + 25, oy + 6, ox + 36, oy + 15, ox + 28, oy + 17);
-      g.lineStyle(1, BD, 0.7);
-      g.strokeLineShape(new Phaser.Geom.Line(ox + 11, oy + 6, ox + 3,  oy + 16));
-      g.strokeLineShape(new Phaser.Geom.Line(ox + 25, oy + 6, ox + 33, oy + 16));
+    // Wings
+    g.fillStyle(BW);
+    if (down) {
+      g.fillTriangle(ox+11,6, ox+0,15,  ox+8,17);
+      g.fillTriangle(ox+25,6, ox+36,15, ox+28,17);
     } else {
-      g.fillStyle(BW);
-      g.fillTriangle(ox + 11, oy + 9, ox + 0,  oy + 2,  ox + 7,  oy + 14);
-      g.fillTriangle(ox + 25, oy + 9, ox + 36, oy + 2,  ox + 29, oy + 14);
-      g.lineStyle(1, BD, 0.7);
-      g.strokeLineShape(new Phaser.Geom.Line(ox + 11, oy + 9, ox + 3,  oy + 3));
-      g.strokeLineShape(new Phaser.Geom.Line(ox + 25, oy + 9, ox + 33, oy + 3));
+      g.fillTriangle(ox+11,9, ox+0,2,  ox+7,14);
+      g.fillTriangle(ox+25,9, ox+36,2, ox+29,14);
     }
-
-    // Body over wings
-    g.fillStyle(B);   g.fillEllipse(ox + 18, oy + 9, 16, 11);
+    // Wing membrane hint (thin dark rect along each wing)
+    g.fillStyle(BD);
+    if (down) {
+      g.fillTriangle(ox+11,7, ox+2,15,  ox+5,16);
+      g.fillTriangle(ox+25,7, ox+34,15, ox+31,16);
+    } else {
+      g.fillTriangle(ox+11,9, ox+2,3,  ox+5,13);
+      g.fillTriangle(ox+25,9, ox+34,3, ox+31,13);
+    }
+    // Body
+    g.fillStyle(B);  g.fillEllipse(ox+18,9,16,11);
     // Ear nubs
     g.fillStyle(BD);
-    g.fillTriangle(ox + 14, oy + 4, ox + 12, oy + 1, ox + 17, oy + 3);
-    g.fillTriangle(ox + 22, oy + 4, ox + 24, oy + 1, ox + 19, oy + 3);
+    g.fillTriangle(ox+13,5, ox+11,1, ox+17,3);
+    g.fillTriangle(ox+23,5, ox+25,1, ox+19,3);
     // Eyes
-    g.fillStyle(0xff4444); g.fillCircle(ox + 15, oy + 8, 2);
-                           g.fillCircle(ox + 21, oy + 8, 2);
-    g.fillStyle(0xffffff); g.fillCircle(ox + 14, oy + 7, 1);
-                           g.fillCircle(ox + 20, oy + 7, 1);
+    g.fillStyle(0xff4444); g.fillCircle(ox+15,8,2); g.fillCircle(ox+21,8,2);
+    g.fillStyle(0xffffff); g.fillCircle(ox+14,7,1); g.fillCircle(ox+20,7,1);
     // Fangs
     g.fillStyle(0xffffff);
-    g.fillTriangle(ox + 16, oy + 13, ox + 15, oy + 17, ox + 17, oy + 17);
-    g.fillTriangle(ox + 20, oy + 13, ox + 19, oy + 17, ox + 21, oy + 17);
+    g.fillTriangle(ox+15,13, ox+14,17, ox+16,17);
+    g.fillTriangle(ox+21,13, ox+20,17, ox+22,17);
   }
 
-  // ── Log obstacle: 20×40 with bark detail ─────────────────────────────────
-  _buildLog() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    // Base trunk
-    g.fillStyle(P.log);     g.fillRect(0, 0, 20, 40);
-    // Grain lines
-    g.fillStyle(P.logDark); g.fillRect(2, 0, 3, 40);
-                            g.fillRect(15, 0, 3, 40);
+  // Log 20×40
+  _makeLog() {
+    const g = this._g();
+    g.fillStyle(P.log);      g.fillRect(0,0,20,40);
+    g.fillStyle(P.logDark);  g.fillRect(2,0,3,40); g.fillRect(15,0,3,40);
     // Top end-cap
-    g.fillStyle(P.logLight); g.fillEllipse(10, 2, 18, 7);
-    g.lineStyle(1, P.logDark, 0.8);
-    g.strokeEllipse(10, 2, 12, 5);
-    g.strokeEllipse(10, 2, 6,  3);
-    // Bottom end-cap shadow
-    g.fillStyle(P.logDark); g.fillEllipse(10, 38, 18, 6);
+    g.fillStyle(P.logLight); g.fillEllipse(10,2,18,7);
+    // Annual rings on cap (filled circles, progressively smaller/darker)
+    g.fillStyle(P.log);      g.fillEllipse(10,2,12,5);
+    g.fillStyle(P.logLight); g.fillEllipse(10,2,6,3);
+    g.fillStyle(P.logDark);  g.fillEllipse(10,2,2,2);
+    // Bottom shadow
+    g.fillStyle(P.logDark);  g.fillEllipse(10,38,18,6);
     // Bark rings
-    g.fillStyle(P.logLight);
-    g.fillRect(0, 9,  20, 2);
-    g.fillRect(0, 21, 20, 2);
-    g.fillRect(0, 33, 20, 2);
-    // Knot hole
-    g.fillStyle(P.logDark);  g.fillEllipse(10, 28, 8, 6);
-    g.fillStyle(0x1a0a08);   g.fillEllipse(10, 28, 4, 3);
+    g.fillStyle(P.logLight); g.fillRect(0,9,20,2); g.fillRect(0,21,20,2); g.fillRect(0,33,20,2);
+    // Knot
+    g.fillStyle(P.logDark);  g.fillEllipse(10,28,8,6);
+    g.fillStyle(0x1a0a08);   g.fillEllipse(10,28,4,3);
     g.generateTexture('log', 20, 40);
     g.destroy();
   }
 
-  // ── Particle textures ─────────────────────────────────────────────────────
-  _buildParticles() {
-    const d = this.make.graphics({ x: 0, y: 0, add: false });
-    d.fillStyle(P.groundTop); d.fillCircle(4, 4, 4);
-    d.generateTexture('particle_dust', 8, 8);
-    d.destroy();
+  // Particle textures
+  _makeParticles() {
+    const d = this._g();
+    d.fillStyle(P.groundTop); d.fillCircle(4,4,4);
+    d.generateTexture('pdust', 8, 8); d.destroy();
 
-    const s = this.make.graphics({ x: 0, y: 0, add: false });
-    s.fillStyle(P.accent); s.fillRect(0, 0, 5, 5);
-    s.generateTexture('particle_star', 5, 5);
-    s.destroy();
+    const s = this._g();
+    s.fillStyle(P.accent); s.fillRect(0,0,5,5);
+    s.generateTexture('pstar', 5, 5); s.destroy();
   }
 
-  // ── Mid background: 480×120 swamp tree silhouettes ────────────────────────
-  _buildBgMid() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    const TW = 480, TH = 120;
-
+  // Mid BG 480×120 — swamp tree silhouettes (fill only, no stroke)
+  _makeBgMid() {
+    const g = this._g();
+    const TH = 120;
     const trees = [
-      { x: 32,  h: 88, w: 18 }, { x: 85,  h: 68, w: 14 },
-      { x: 145, h: 98, w: 20 }, { x: 205, h: 62, w: 14 },
-      { x: 265, h: 84, w: 18 }, { x: 325, h: 72, w: 14 },
-      { x: 390, h: 94, w: 20 }, { x: 450, h: 58, w: 12 },
+      {x:32, h:88,w:18},{x:85, h:68,w:14},{x:145,h:98,w:20},{x:205,h:62,w:14},
+      {x:265,h:84,w:18},{x:325,h:72,w:14},{x:390,h:94,w:20},{x:450,h:58,w:12},
     ];
-
     for (const t of trees) {
-      const base = TH;
       // Trunk
-      g.fillStyle(P.tree);     g.fillRect(t.x - t.w / 2, base - t.h, t.w, t.h);
-      g.fillStyle(P.treeDark); g.fillRect(t.x - t.w / 2, base - t.h, 3, t.h);
-      // Crown
+      g.fillStyle(P.tree);     g.fillRect(t.x-t.w/2, TH-t.h, t.w, t.h);
+      g.fillStyle(P.treeDark); g.fillRect(t.x-t.w/2, TH-t.h, 3,   t.h);
+      // Crown triangle
       g.fillStyle(P.tree);
-      g.fillTriangle(
-        t.x,            base - t.h - 28,
-        t.x - t.w * 2, base - t.h + 18,
-        t.x + t.w * 2, base - t.h + 18
-      );
-      // Side branches
-      g.lineStyle(2, P.tree, 1);
-      g.strokeLineShape(new Phaser.Geom.Line(t.x - 2, base - t.h + 8, t.x - t.w * 2.8, base - t.h - 8));
-      g.strokeLineShape(new Phaser.Geom.Line(t.x + 2, base - t.h + 8, t.x + t.w * 2.8, base - t.h - 12));
-      // Hanging moss
-      g.lineStyle(1, P.treeDark, 0.55);
-      for (let mx = t.x - t.w + 2; mx < t.x + t.w; mx += 5) {
+      g.fillTriangle(t.x, TH-t.h-28, t.x-t.w*2, TH-t.h+18, t.x+t.w*2, TH-t.h+18);
+      // Branch stubs (thin filled rects at an angle approximation)
+      g.fillStyle(P.tree);
+      g.fillRect(t.x-t.w*2-2, TH-t.h-10, t.w*2, 3);   // left branch
+      g.fillRect(t.x+2,       TH-t.h-14, t.w*2, 3);   // right branch
+      // Moss strands (thin rects)
+      g.fillStyle(P.treeDark);
+      for (let mx = t.x - t.w + 2; mx < t.x + t.w; mx += 6) {
         const mh = 8 + ((mx * 7 + t.h) % 13);
-        g.strokeLineShape(new Phaser.Geom.Line(mx, base - t.h + 16, mx, base - t.h + 16 + mh));
+        g.fillRect(mx, TH-t.h+16, 1, mh);
       }
     }
-    // Ground fog
-    g.fillStyle(P.treeDark);
-    g.fillRect(0, TH - 18, TW, 18);
-
-    g.generateTexture('bg_mid', TW, TH);
+    // Ground fog band
+    g.fillStyle(P.treeDark); g.fillRect(0, TH-18, 480, 18);
+    g.generateTexture('bg_mid', 480, 120);
     g.destroy();
   }
 
-  // ── Fore background: 480×40 swamp reeds and lilypads ─────────────────────
-  _buildBgFore() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    const TW = 480, TH = 40;
-
-    // Reed clusters at deterministic intervals
-    const reedPos = [8, 38, 72, 110, 148, 190, 230, 272, 310, 355, 395, 440];
-    for (const rx of reedPos) {
+  // Fore BG 480×40 — reeds, lily pads, pebbles (fill only)
+  _makeBgFore() {
+    const g = this._g();
+    const TH = 40;
+    // Reeds
+    const reedX = [8,38,72,110,148,190,230,272,310,355,395,440];
+    for (const rx of reedX) {
       const n = 2 + (rx % 3);
       for (let i = 0; i < n; i++) {
-        const x  = rx + i * 7;
-        const rh = 18 + (x % 14);
-        g.fillStyle(P.reed);    g.fillRect(x, TH - rh, 2, rh);
-        g.fillStyle(P.accent);  g.fillEllipse(x + 1, TH - rh, 5, 9);
+        const x = rx + i * 7, rh = 18 + (x % 14);
+        g.fillStyle(P.reed);   g.fillRect(x, TH-rh, 2, rh);
+        g.fillStyle(P.accent); g.fillEllipse(x+1, TH-rh, 5, 9);
       }
     }
     // Lily pads
-    const padPos = [22, 90, 175, 255, 340, 420];
-    for (const px of padPos) {
+    for (const px of [22,90,175,255,340,420]) {
       const pw = 14 + (px % 10);
-      g.fillStyle(P.ground);     g.fillEllipse(px, TH - 6, pw, 8);
-      g.lineStyle(1, P.frogDark, 0.4);
-      g.strokeEllipse(px, TH - 6, pw, 8);
-      // Notch line
-      g.lineStyle(1, P.frogDark, 0.3);
-      g.strokeLineShape(new Phaser.Geom.Line(px, TH - 10, px, TH - 2));
+      g.fillStyle(P.ground);   g.fillEllipse(px, TH-6, pw, 8);
+      g.fillStyle(P.frogDark); g.fillRect(px-1, TH-10, 2, 8); // notch line
     }
     // Pebbles
-    const pebPos = [50, 130, 210, 290, 370, 460];
-    for (const bx of pebPos) {
-      g.fillStyle(P.frogDark); g.fillCircle(bx, TH - 4, 2 + (bx % 3));
+    for (const bx of [50,130,210,290,370,460]) {
+      g.fillStyle(P.frogDark); g.fillCircle(bx, TH-4, 2+(bx%3));
     }
-
-    g.generateTexture('bg_fore', TW, TH);
+    g.generateTexture('bg_fore', 480, 40);
     g.destroy();
   }
 }
@@ -344,129 +257,97 @@ class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
 
   create() {
-    this.gameStarted  = false;
-    this.dead         = false;
-    this.score        = 0;
-    this.scoreTick    = 0;
-    this.elapsed      = 0;
-    this.speed        = 280;
-    this.spawnInterval = 2200;
-    this.spawnTimer   = 0;
-    this.jumpCount    = 0;
-    this.isGrounded   = true;
-    this.deadTimer    = 0;
-    this.spinAngle    = 0;
+    this.gameStarted = false;
+    this.dead        = false;
+    this.score = 0; this.scoreTick = 0; this.elapsed = 0;
+    this.speed = 280; this.spawnInterval = 2200; this.spawnTimer = 0;
+    this.jumpCount = 0; this.isGrounded = true;
+    this.deadTimer = 0; this.spinAngle = 0;
 
-    // ── Sky (depth 0, static) ────────────────────────────────────────────────
+    // Sky (depth 0, static)
     const sky = this.add.graphics().setDepth(0);
     sky.fillGradientStyle(P.sky1, P.sky1, P.sky2, P.sky2, 1);
     sky.fillRect(0, 0, W, H);
-    // Moon
-    sky.fillStyle(P.moon, 0.9);   sky.fillCircle(W - 52, 52, 22);
-    sky.fillStyle(P.sky2, 0.55);  sky.fillCircle(W - 43, 46, 19);
-    // Stars
+    sky.fillStyle(P.moon, 0.9);  sky.fillCircle(W-52, 52, 22);
+    sky.fillStyle(P.sky2, 0.6);  sky.fillCircle(W-43, 46, 19); // crescent shadow
     sky.fillStyle(P.star, 0.5);
-    [[22,28],[65,14],[118,44],[182,19],[244,52],[308,24],
-     [355,38],[418,13],[48,78],[155,68],[258,82],[385,72]
-    ].forEach(([sx,sy]) => sky.fillRect(sx, sy, 2, 2));
+    [[22,28],[65,14],[118,44],[182,19],[244,52],[308,24],[355,38],[418,13],
+     [48,78],[155,68],[258,82],[385,72]].forEach(([x,y]) => sky.fillRect(x,y,2,2));
 
-    // ── Parallax layers (depths 1–2) ─────────────────────────────────────────
-    this.bgMid  = this.add.tileSprite(0, H - 172, W, 120, 'bg_mid')
-      .setOrigin(0, 1).setDepth(1).setAlpha(0.82);
-    this.bgFore = this.add.tileSprite(0, GY + 2, W, 40, 'bg_fore')
-      .setOrigin(0, 1).setDepth(2).setAlpha(0.88);
+    // Parallax layers (depths 1–2)
+    this.bgMid  = this.add.tileSprite(0, H-172, W, 120, 'bg_mid').setOrigin(0,1).setDepth(1).setAlpha(0.82);
+    this.bgFore = this.add.tileSprite(0, GY+2,  W,  40, 'bg_fore').setOrigin(0,1).setDepth(2).setAlpha(0.88);
 
-    // ── Ground (depth 3) ─────────────────────────────────────────────────────
+    // Ground (depth 3)
     const gGfx = this.add.graphics().setDepth(3);
-    gGfx.fillStyle(P.ground);       gGfx.fillRect(0, GY,     W, H - GY);
-    gGfx.fillStyle(P.groundTop);    gGfx.fillRect(0, GY,     W, 5);
-    gGfx.fillStyle(P.groundShadow); gGfx.fillRect(0, GY + 5, W, 4);
+    gGfx.fillStyle(P.ground);       gGfx.fillRect(0,GY,    W,H-GY);
+    gGfx.fillStyle(P.groundTop);    gGfx.fillRect(0,GY,    W,5);
+    gGfx.fillStyle(P.groundShadow); gGfx.fillRect(0,GY+5,  W,4);
 
-    // ── Physics ──────────────────────────────────────────────────────────────
+    // Physics
     this.physics.world.gravity.y = 800;
     this.physics.world.setBounds(0, 0, W, H);
 
-    // ── Frog (depth 5) ───────────────────────────────────────────────────────
-    this.frog = this.physics.add.sprite(80, GY - 32, 'frog_sheet', 0)
-      .setOrigin(0.5, 1).setDepth(5);
-    this.frog.body.setCollideWorldBounds(true);
-    this.frog.body.setSize(26, 28).setOffset(3, 4);
+    // Frog sprite (depth 5)
+    this.frog = this.physics.add.sprite(80, GY-32, 'frog_sheet', 0).setOrigin(0.5,1).setDepth(5);
+    this.frog.body.setCollideWorldBounds(true).setSize(26,28).setOffset(3,4);
     this.frog.play('frog_run');
 
     // Ground collider
-    this.groundBody = this.physics.add.staticImage(W / 2, GY + 10, null)
-      .setVisible(false).setDisplaySize(W, 20).refreshBody();
+    this.groundBody = this.physics.add.staticImage(W/2, GY+10, null)
+      .setVisible(false).setDisplaySize(W,20).refreshBody();
     this.physics.add.collider(this.frog, this.groundBody, () => this.onLand());
 
-    // ── Obstacles (depth 4) ──────────────────────────────────────────────────
+    // Obstacles (depth 4)
     this.obstacles = this.physics.add.group();
     this.physics.add.overlap(this.frog, this.obstacles, () => this.die());
 
-    // ── Particles (depth 6) ──────────────────────────────────────────────────
-    this.dustEmitter = this.add.particles(0, 0, 'particle_dust', {
-      speed:    { min: 30,  max: 90 },
-      angle:    { min: 200, max: 340 },
-      scale:    { start: 0.9, end: 0 },
-      alpha:    { start: 0.7, end: 0 },
-      lifespan: 380,
-      quantity: 1,
-      on: false,
+    // Particles (Phaser 3.60 API: emitting:false instead of on:false)
+    this.dustEmitter = this.add.particles(0, 0, 'pdust', {
+      speed: { min:30, max:90 }, angle: { min:200, max:340 },
+      scale: { start:0.9, end:0 }, alpha: { start:0.7, end:0 },
+      lifespan: 380, quantity: 1, emitting: false,
     }).setDepth(6);
 
-    this.deathEmitter = this.add.particles(0, 0, 'particle_star', {
-      speed:    { min: 70,  max: 190 },
-      angle:    { min: 0,   max: 360 },
-      scale:    { start: 1,   end: 0 },
-      alpha:    { start: 1,   end: 0 },
-      lifespan: 650,
-      quantity: 1,
-      tint:     [0x4a8c3f, 0x8bc34a, 0xd4e8a0, 0xffffff],
-      on: false,
+    this.deathEmitter = this.add.particles(0, 0, 'pstar', {
+      speed: { min:70, max:190 }, angle: { min:0, max:360 },
+      scale: { start:1, end:0 }, alpha: { start:1, end:0 },
+      lifespan: 650, quantity: 1,
+      tint: [0x4a8c3f, 0x8bc34a, 0xd4e8a0, 0xffffff],
+      emitting: false,
     }).setDepth(6);
 
-    // ── Score UI (depth 9–10) ─────────────────────────────────────────────────
+    // Score UI (depth 9–10)
     const uiBg = this.add.graphics().setDepth(9);
     uiBg.fillStyle(0x000000, 0.42);
-    uiBg.fillRoundedRect(W - 92, 8, 84, 46, 4);
+    uiBg.fillRoundedRect(W-92, 8, 84, 46, 4);
 
-    this.scoreTxt = this.add.text(W - 14, 13, '0m', {
-      fontSize: '18px', fontFamily: 'monospace',
-      color: '#c8e6c9', stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(1, 0).setDepth(10);
+    this.scoreTxt = this.add.text(W-14, 13, '0m', {
+      fontSize:'18px', fontFamily:'monospace', color:'#c8e6c9', stroke:'#000000', strokeThickness:3
+    }).setOrigin(1,0).setDepth(10);
 
     const best = parseInt(localStorage.getItem('dashfrog_best') || '0');
-    this.bestTxt = this.add.text(W - 14, 35, best > 0 ? `Best: ${best}m` : '', {
-      fontSize: '12px', fontFamily: 'monospace',
-      color: '#8bc34a', stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(1, 0).setDepth(10);
+    this.bestTxt = this.add.text(W-14, 35, best > 0 ? `Best: ${best}m` : '', {
+      fontSize:'12px', fontFamily:'monospace', color:'#8bc34a', stroke:'#000000', strokeThickness:2
+    }).setOrigin(1,0).setDepth(10);
 
-    // ── Start overlay (depth 10) ──────────────────────────────────────────────
-    this.startOverlay = this.add.container(W / 2, H / 2 - 55).setDepth(10);
+    // Start overlay (depth 10)
+    this.startOverlay = this.add.container(W/2, H/2-55).setDepth(10);
     const olBg = this.add.graphics();
-    olBg.fillStyle(0x000000, 0.52);
-    olBg.fillRoundedRect(-128, -18, 256, 138, 7);
-    olBg.lineStyle(2, 0x4a8c3f, 0.6);
-    olBg.strokeRoundedRect(-128, -18, 256, 138, 7);
-    const olTitle = this.add.text(0, 0, 'DASH FROG', {
-      fontSize: '38px', fontFamily: 'monospace',
-      color: '#8bc34a', stroke: '#2d5a27', strokeThickness: 4,
-    }).setOrigin(0.5);
-    const bestVal = parseInt(localStorage.getItem('dashfrog_best') || '0');
-    const olBest = this.add.text(0, 50, bestVal > 0 ? `Best: ${bestVal}m` : '', {
-      fontSize: '16px', fontFamily: 'monospace', color: '#c8e6c9',
-    }).setOrigin(0.5);
-    this.tapTxt = this.add.text(0, 94, 'TAP TO START', {
-      fontSize: '20px', fontFamily: 'monospace',
-      color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5);
+    olBg.fillStyle(0x000000, 0.52); olBg.fillRoundedRect(-128,-18,256,138,7);
+    olBg.fillStyle(0x2d5a27, 0.4);  olBg.fillRect(-126,-16,252,2); // top accent line
+    const olTitle = this.add.text(0,0,'DASH FROG',{fontSize:'38px',fontFamily:'monospace',color:'#8bc34a',stroke:'#2d5a27',strokeThickness:4}).setOrigin(0.5);
+    const bestVal = parseInt(localStorage.getItem('dashfrog_best')||'0');
+    const olBest  = this.add.text(0,50, bestVal > 0 ? `Best: ${bestVal}m` : '',{fontSize:'16px',fontFamily:'monospace',color:'#c8e6c9'}).setOrigin(0.5);
+    this.tapTxt   = this.add.text(0,94,'TAP TO START',{fontSize:'20px',fontFamily:'monospace',color:'#ffffff',stroke:'#000000',strokeThickness:3}).setOrigin(0.5);
     this.startOverlay.add([olBg, olTitle, olBest, this.tapTxt]);
     this.tweens.add({ targets: this.tapTxt, alpha: 0, duration: 500, yoyo: true, repeat: -1 });
 
-    // ── Input ─────────────────────────────────────────────────────────────────
+    // Input
     this.input.on('pointerdown', () => this.handleTap());
     this.input.keyboard && this.input.keyboard.on('keydown-SPACE', () => this.handleTap());
 
-    // ── Cleanup on shutdown ───────────────────────────────────────────────────
+    // Cleanup emitters on shutdown to prevent leaks on scene restart
     this.events.once('shutdown', () => {
       this.dustEmitter.destroy();
       this.deathEmitter.destroy();
@@ -476,30 +357,24 @@ class GameScene extends Phaser.Scene {
   handleTap() {
     if (this.dead) return;
     if (!this.gameStarted) { this.startGame(); return; }
-    if (this.isGrounded) {
-      this.jump(-520);
-    } else if (this.jumpCount < 2) {
-      this.jump(-420);
-    }
+    if (this.isGrounded) { this.jump(-520); }
+    else if (this.jumpCount < 2) { this.jump(-420); }
   }
 
   jump(vel) {
     this.frog.body.velocity.y = vel;
-    this.jumpCount++;
-    this.isGrounded = false;
+    this.jumpCount++; this.isGrounded = false;
     this.frog.play('frog_jump', true);
     beep(vel === -520 ? 440 : 600, 0.07);
   }
 
   onLand() {
     if (!this.isGrounded && !this.dead) {
-      this.isGrounded = true;
-      this.jumpCount  = 0;
+      this.isGrounded = true; this.jumpCount = 0;
       this.dustEmitter.explode(8, this.frog.x, this.frog.y);
       this.frog.setScale(1.2, 0.7);
       this.tweens.add({
-        targets: this.frog, scaleX: 1, scaleY: 1,
-        duration: 80, ease: 'Back.easeOut',
+        targets: this.frog, scaleX: 1, scaleY: 1, duration: 80, ease: 'Back.easeOut',
         onComplete: () => { if (!this.dead) this.frog.play('frog_run', true); }
       });
     }
@@ -515,16 +390,12 @@ class GameScene extends Phaser.Scene {
     const isLog = Phaser.Math.Between(0, 10) < 6;
     let obs;
     if (isLog) {
-      obs = this.obstacles.create(W + 20, GY - 40, 'log')
-        .setOrigin(0.5, 1).setDepth(4);
-      obs.body.setAllowGravity(false).setImmovable(true);
-      obs.body.setSize(18, 36).setOffset(1, 4);
+      obs = this.obstacles.create(W+20, GY-40, 'log').setOrigin(0.5,1).setDepth(4);
+      obs.body.setAllowGravity(false).setImmovable(true).setSize(18,36).setOffset(1,4);
     } else {
       const batY = GY - 32 - 32 - 8;
-      obs = this.obstacles.create(W + 20, batY, 'bat_sheet', 0)
-        .setOrigin(0.5, 0.5).setDepth(4);
-      obs.body.setAllowGravity(false).setImmovable(true);
-      obs.body.setSize(28, 12).setOffset(4, 3);
+      obs = this.obstacles.create(W+20, batY, 'bat_sheet', 0).setOrigin(0.5,0.5).setDepth(4);
+      obs.body.setAllowGravity(false).setImmovable(true).setSize(28,12).setOffset(4,3);
       obs.play('bat_flap');
     }
     obs.obsSpeed = this.speed;
@@ -539,8 +410,7 @@ class GameScene extends Phaser.Scene {
     beep(180, 0.3);
     const prev = parseInt(localStorage.getItem('dashfrog_best') || '0');
     if (this.score > prev) localStorage.setItem('dashfrog_best', this.score);
-    this.deadTimer = 0;
-    this.spinAngle = 0;
+    this.deadTimer = 0; this.spinAngle = 0;
   }
 
   updateDifficulty() {
@@ -554,52 +424,34 @@ class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     const dt = delta / 1000;
-
-    // Parallax scroll (only while playing)
     if (this.gameStarted && !this.dead) {
       this.bgMid.tilePositionX  += this.speed * 0.18 * dt;
       this.bgFore.tilePositionX += this.speed * 0.52 * dt;
     }
-
     if (!this.gameStarted || this.dead) {
       if (this.dead) {
-        this.deadTimer += dt;
-        this.spinAngle += 540 * dt;
+        this.deadTimer += dt; this.spinAngle += 540 * dt;
         this.frog.setAngle(this.spinAngle);
-        if (this.deadTimer > 1.2) {
-          this.scene.start('GameOver', { score: this.score });
-        }
+        if (this.deadTimer > 1.2) this.scene.start('GameOver', { score: this.score });
       }
       return;
     }
-
     this.elapsed += dt;
     this.updateDifficulty();
-
-    // Score
     this.scoreTick += dt;
     if (this.scoreTick >= 0.1) { this.scoreTick -= 0.1; this.score++; }
     this.scoreTxt.setText(this.score + 'm');
-
-    // Spawn
     this.spawnTimer -= delta;
     if (this.spawnTimer <= 0) {
       this.spawnObstacle();
       this.spawnTimer = this.spawnInterval + Phaser.Math.Between(-200, 200);
     }
-
-    // Move obstacles
     this.obstacles.getChildren().forEach(obs => {
       obs.x -= (obs.obsSpeed || this.speed) * dt;
       if (obs.x < -80) obs.destroy();
     });
-
-    // Ground check
-    if (this.frog.body.blocked.down) {
-      if (!this.isGrounded) this.onLand();
-    } else {
-      if (this.frog.y < GY - 32) this.isGrounded = false;
-    }
+    if (this.frog.body.blocked.down) { if (!this.isGrounded) this.onLand(); }
+    else if (this.frog.y < GY - 32)  { this.isGrounded = false; }
   }
 }
 
@@ -611,51 +463,28 @@ class GameOverScene extends Phaser.Scene {
     const score = data.score || 0;
     const best  = parseInt(localStorage.getItem('dashfrog_best') || '0');
 
-    // Recreate sky so there's no flash to black
+    // Sky (no flash to black)
     const sky = this.add.graphics();
     sky.fillGradientStyle(P.sky1, P.sky1, P.sky2, P.sky2, 1);
     sky.fillRect(0, 0, W, H);
-    sky.fillStyle(P.moon, 0.9);  sky.fillCircle(W - 52, 52, 22);
-    sky.fillStyle(P.sky2, 0.55); sky.fillCircle(W - 43, 46, 19);
+    sky.fillStyle(P.moon, 0.9);  sky.fillCircle(W-52,52,22);
+    sky.fillStyle(P.sky2, 0.6);  sky.fillCircle(W-43,46,19);
 
-    // Overlay panel
     const panel = this.add.graphics();
-    panel.fillStyle(0x000000, 0.72);
-    panel.fillRoundedRect(W / 2 - 155, H / 2 - 155, 310, 248, 8);
-    panel.lineStyle(2, 0x4a8c3f, 0.7);
-    panel.strokeRoundedRect(W / 2 - 155, H / 2 - 155, 310, 248, 8);
+    panel.fillStyle(0x000000, 0.72); panel.fillRoundedRect(W/2-155, H/2-155, 310, 248, 8);
+    panel.fillStyle(0x4a8c3f, 0.5);  panel.fillRect(W/2-153, H/2-153, 306, 2);
 
-    this.add.text(W / 2, H / 2 - 115, 'GAME OVER', {
-      fontSize: '36px', fontFamily: 'monospace',
-      color: '#ff4444', stroke: '#000000', strokeThickness: 4,
-    }).setOrigin(0.5);
+    this.add.text(W/2, H/2-115,'GAME OVER',{fontSize:'36px',fontFamily:'monospace',color:'#ff4444',stroke:'#000000',strokeThickness:4}).setOrigin(0.5);
+    this.add.text(W/2, H/2-52, `Score: ${score}m`,{fontSize:'26px',fontFamily:'monospace',color:'#ffffff',stroke:'#000000',strokeThickness:3}).setOrigin(0.5);
+    this.add.text(W/2, H/2,    `Best: ${best}m`,  {fontSize:'20px',fontFamily:'monospace',color:'#8bc34a',stroke:'#000000',strokeThickness:3}).setOrigin(0.5);
 
-    this.add.text(W / 2, H / 2 - 52, `Score: ${score}m`, {
-      fontSize: '26px', fontFamily: 'monospace',
-      color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5);
-
-    this.add.text(W / 2, H / 2, `Best: ${best}m`, {
-      fontSize: '20px', fontFamily: 'monospace',
-      color: '#8bc34a', stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5);
-
-    const tapTxt = this.add.text(W / 2, H / 2 + 72, 'TAP TO RETRY', {
-      fontSize: '20px', fontFamily: 'monospace',
-      color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5);
+    const tapTxt = this.add.text(W/2, H/2+72,'TAP TO RETRY',{fontSize:'20px',fontFamily:'monospace',color:'#ffffff',stroke:'#000000',strokeThickness:3}).setOrigin(0.5);
     this.tweens.add({ targets: tapTxt, alpha: 0, duration: 500, yoyo: true, repeat: -1 });
 
-    // Death burst on game over screen
-    const burst = this.add.particles(W / 2, H / 2 - 130, 'particle_star', {
-      speed:    { min: 50, max: 160 },
-      angle:    { min: 0,  max: 360 },
-      scale:    { start: 1,   end: 0 },
-      alpha:    { start: 1,   end: 0 },
-      lifespan: 800,
-      tint:     [0x4a8c3f, 0x8bc34a, 0xd4e8a0],
-      quantity: 1,
-      on: false,
+    const burst = this.add.particles(W/2, H/2-130, 'pstar', {
+      speed:{min:50,max:160}, angle:{min:0,max:360},
+      scale:{start:1,end:0}, alpha:{start:1,end:0}, lifespan:800,
+      tint:[0x4a8c3f,0x8bc34a,0xd4e8a0], quantity:1, emitting:false,
     });
     burst.explode(24);
 
@@ -663,25 +492,21 @@ class GameOverScene extends Phaser.Scene {
       this.input.on('pointerdown', () => this.scene.start('Game'));
       this.input.keyboard && this.input.keyboard.on('keydown-SPACE', () => this.scene.start('Game'));
     });
-
     this.events.once('shutdown', () => burst.destroy());
   }
 }
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const config = {
+new Phaser.Game({
   type: Phaser.AUTO,
-  width: W,
-  height: H,
+  width: W, height: H,
   backgroundColor: '#060d06',
   physics: { default: 'arcade', arcade: { gravity: { y: 800 }, debug: false } },
-  scene: [PreloadScene, GameScene, GameOverScene],
+  scene: [BootScene, GameScene, GameOverScene],
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   parent: document.body,
   render: { antialias: true },
-};
-
-new Phaser.Game(config);
+});
 </script>
 </body>
 </html>
