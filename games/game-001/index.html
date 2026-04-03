@@ -178,6 +178,7 @@ class GameScene extends Phaser.Scene {
     // Pickups group
     this.pickups = this.physics.add.group();
     this.physics.add.overlap(this.frog, this.pickups, (frog, pickup) => {
+      if (pickup.bobTween) pickup.bobTween.stop();
       this.collectPowerup(pickup.puType);
       pickup.destroy();
     });
@@ -464,13 +465,14 @@ class GameScene extends Phaser.Scene {
     pu.setBlendMode(Phaser.BlendModes.ADD);
 
     // Float bob tween
-    this.tweens.add({
+    pu.bobTween = this.tweens.add({
       targets: pu, y: y - 10, duration: 600, ease: 'Sine.easeInOut',
       yoyo: true, repeat: -1,
     });
   }
 
   collectPowerup(type) {
+    if (this.dead) return;   // guard against dead state
     // Cancel any active power-up
     this.clearActivePowerup();
 
@@ -570,11 +572,11 @@ class GameScene extends Phaser.Scene {
     // Scroll pickups
     this.pickups.getChildren().forEach(pu => {
       pu.x -= this.speed * 0.8 * (delta / 1000); // slightly slower than obstacles
-      if (pu.x < -80) pu.destroy();
+      if (pu.x < -80) { if (pu.bobTween) pu.bobTween.stop(); pu.destroy(); }
     });
 
     // Active power-up tick
-    if (this.activePowerup && this.activePowerup.fuel > 0) {
+    if (this.activePowerup && this.activePowerup.fuel > 0 && !this.dead) {
       this.activePowerup.fuel -= delta;
       if (this.activePowerup.fuel <= 0) {
         this.clearActivePowerup();
@@ -589,7 +591,7 @@ class GameScene extends Phaser.Scene {
         this.puIcon.setPosition(bx - 12, by + 3);
       }
     }
-    if (this.activePowerup?.type === 'shield' && this.shieldRing) {
+    if (this.activePowerup?.type === 'shield' && this.shieldRing && !this.dead) {
       this.shieldRing.clear();
       this.shieldRing.lineStyle(2, 0xff8800, 0.8);
       this.shieldRing.strokeCircle(this.frog.x, this.frog.y - 32, 36);
