@@ -544,6 +544,17 @@ class GameScene extends Phaser.Scene {
 
   die() {
     if (this.dead) return;
+    // Shield absorbs one hit
+    if (this.activePowerup?.type === 'shield') {
+      this.shieldRing.destroy(); this.shieldRing = null;
+      this.activePowerup = null;
+      this.puBar.setVisible(false); this.puIcon.setVisible(false);
+      this.cameras.main.shake(120, 0.01);
+      beep(300, 0.1);
+      return; // survive
+    }
+    // Shroom or Rage: fully invincible
+    if (this.activePowerup?.type === 'shroom' || this.activePowerup?.type === 'rage') return;
     this.dead = true;
     this.frog.body.velocity.x = 0;
     this.frog.play('frog_dead', true);
@@ -625,7 +636,11 @@ class GameScene extends Phaser.Scene {
     this.elapsed += dt;
     this.updateDifficulty();
     this.scoreTick += dt;
-    if (this.scoreTick >= 0.1) { this.scoreTick -= 0.1; this.score++; }
+    if (this.scoreTick >= 0.1) {
+      this.scoreTick -= 0.1;
+      const mult = this.activePowerup?.type === 'fly' ? 2 : 1;
+      this.score += mult;
+    }
     this.scoreTxt.setText(this.score + 'm');
 
     // Biome check
@@ -660,6 +675,27 @@ class GameScene extends Phaser.Scene {
       }
       if (obs.x < -120 && !obs.fallSpeed) obs.destroy();
     });
+
+    // Rage: smash overlapping obstacles
+    if (this.activePowerup?.type === 'rage') {
+      const frogB = this.frog.getBounds();
+      const rageDestroy = [];
+      this.obstacles.getChildren().forEach(obs => {
+        if (Phaser.Geom.Intersects.RectangleToRectangle(frogB, obs.getBounds())) {
+          rageDestroy.push(obs);
+        }
+      });
+      rageDestroy.forEach(obs => {
+        this.deathEmitter.explode(12, obs.x, obs.y);
+        obs.destroy();
+        this.score += 15;
+        const t = this.add.text(obs.x, obs.y - 10, '+15', {
+          fontSize: '16px', fontFamily: 'monospace', color: '#ff4400', stroke: '#000000', strokeThickness: 2,
+        }).setDepth(8).setOrigin(0.5);
+        this.tweens.add({ targets: t, y: t.y - 40, alpha: 0, duration: 700, onComplete: () => t.destroy() });
+      });
+    }
+
     if (this.frog.body.blocked.down) { if (!this.isGrounded) this.onLand(); }
     else if (this.frog.y < GY - 32)  { this.isGrounded = false; }
 
