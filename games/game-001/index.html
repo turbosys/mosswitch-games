@@ -235,6 +235,10 @@ class GameScene extends Phaser.Scene {
       fontSize:'18px', fontFamily:'monospace', color:'#c8e6c9', stroke:'#000000', strokeThickness:3
     }).setOrigin(1,0).setDepth(10);
 
+    this.glitchTimer = 0;
+    this.glitchNext  = Phaser.Math.Between(8000, 15000);
+    this.canvas = document.querySelector('canvas');
+
     const best = parseInt(localStorage.getItem('dashfrog_best') || '0');
     this.bestTxt = this.add.text(W-14, 35, best > 0 ? `Best: ${best}m` : '', {
       fontSize:'12px', fontFamily:'monospace', color:'#8bc34a', stroke:'#000000', strokeThickness:2
@@ -265,6 +269,7 @@ class GameScene extends Phaser.Scene {
       this.deathEmitter.destroy();
       this.clearActivePowerup();
       if (this.weatherEmitter) this.weatherEmitter.destroy();
+      if (this.canvas) this.canvas.style.filter = '';
     });
   }
 
@@ -708,6 +713,21 @@ class GameScene extends Phaser.Scene {
       }
     }
 
+    // 300m+ scanline glitch
+    if (this.score >= 300) {
+      this.glitchTimer += delta;
+      if (this.glitchTimer >= this.glitchNext) {
+        this.glitchTimer = 0;
+        this.glitchNext = Phaser.Math.Between(8000, 15000);
+        if (this.canvas) {
+          this.canvas.style.filter = 'contrast(1.15) brightness(0.9) saturate(1.3)';
+          this.time.delayedCall(80, () => {
+            if (this.canvas) this.canvas.style.filter = '';
+          });
+        }
+      }
+    }
+
     this.spawnTimer -= delta;
     if (this.spawnTimer <= 0) {
       this.spawnObstacle();
@@ -732,6 +752,22 @@ class GameScene extends Phaser.Scene {
         }
       }
       if (obs.x < -120 && !obs.fallSpeed) obs.destroy();
+      // Near-miss: obstacle just passed the frog
+      if (!obs._nearMissed && obs.x < this.frog.x - 10 && obs.x > this.frog.x - 50) {
+        const frogB = this.frog.getBounds();
+        const obsB  = obs.getBounds();
+        const gap = Math.abs(frogB.centerY - obsB.centerY) - frogB.height / 2 - obsB.height / 2;
+        if (gap < 12 && gap >= 0) {
+          obs._nearMissed = true;
+          this.cameras.main.shake(80, 0.004);
+          this.cameras.main.flash(60, 255, 255, 255, false);
+          this.score += 3;
+          const t = this.add.text(this.frog.x + 20, this.frog.y - 40, 'CLOSE!', {
+            fontSize: '12px', fontFamily: 'monospace', color: '#ffff00', stroke: '#000000', strokeThickness: 2,
+          }).setDepth(8).setOrigin(0.5);
+          this.tweens.add({ targets: t, y: t.y - 20, alpha: 0, duration: 500, onComplete: () => t.destroy() });
+        }
+      }
     });
 
     // Rage: smash overlapping obstacles
