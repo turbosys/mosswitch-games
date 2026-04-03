@@ -175,6 +175,12 @@ class GameScene extends Phaser.Scene {
     this.obstacles = this.physics.add.group();
     this.physics.add.overlap(this.frog, this.obstacles, () => { this.die(); });
 
+    // Laser beam (hidden until activated)
+    this.laserBeam = this.add.image(W / 2, GY - 32, 'laser_beam')
+      .setOrigin(0, 0.5).setDepth(5.5).setVisible(false)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.laserSpawnMult = 1; // multiplier for obstacle density during laser
+
     // Pickups group
     this.pickups = this.physics.add.group();
     this.physics.add.overlap(this.frog, this.pickups, (frog, pickup) => {
@@ -523,8 +529,19 @@ class GameScene extends Phaser.Scene {
     if (!this.dead) this.frog.play('frog_run', true);
   }
 
-  activateLaser() { /* implemented in Task 7 */ }
-  deactivateLaser() { /* implemented in Task 7 */ }
+  activateLaser() {
+    this.laserBeam.setVisible(true);
+    this.laserSpawnMult = 2; // double obstacle density
+    // Set beam tint to biome colour
+    const biomeColors = [0x00ff44, 0xce93d8, 0xff6b35, 0x00e5ff];
+    this.laserBeam.setTint(biomeColors[this.biomeIdx] || 0x00ff44);
+  }
+
+  deactivateLaser() {
+    this.laserBeam.setVisible(false);
+    this.laserSpawnMult = 1;
+    this.frog.play('frog_run', true);
+  }
 
   die() {
     if (this.dead) return;
@@ -622,7 +639,8 @@ class GameScene extends Phaser.Scene {
     this.spawnTimer -= delta;
     if (this.spawnTimer <= 0) {
       this.spawnObstacle();
-      this.spawnTimer = this.spawnInterval + Phaser.Math.Between(-200, 200);
+      const interval = Math.round(this.spawnInterval / this.laserSpawnMult);
+      this.spawnTimer = interval + Phaser.Math.Between(-200, 200);
     }
     this.obstacles.getChildren().forEach(obs => {
       if (obs.obsSpeed !== undefined) {
@@ -645,6 +663,27 @@ class GameScene extends Phaser.Scene {
     });
     if (this.frog.body.blocked.down) { if (!this.isGrounded) this.onLand(); }
     else if (this.frog.y < GY - 32)  { this.isGrounded = false; }
+
+    // Laser beam follows frog mouth
+    if (this.laserBeam.visible) {
+      this.laserBeam.setPosition(this.frog.x, this.frog.y - 32);
+      const beamBounds = this.laserBeam.getBounds();
+      const toDestroy = [];
+      this.obstacles.getChildren().forEach(obs => {
+        if (Phaser.Geom.Intersects.RectangleToRectangle(beamBounds, obs.getBounds())) {
+          toDestroy.push(obs);
+        }
+      });
+      toDestroy.forEach(obs => {
+        this.deathEmitter.explode(8, obs.x, obs.y);
+        obs.destroy();
+        this.score += 10;
+        const t = this.add.text(obs.x, obs.y - 10, '+10', {
+          fontSize: '14px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+        }).setDepth(8).setOrigin(0.5);
+        this.tweens.add({ targets: t, y: t.y - 30, alpha: 0, duration: 600, onComplete: () => t.destroy() });
+      });
+    }
   }
 }
 
