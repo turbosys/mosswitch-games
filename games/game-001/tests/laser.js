@@ -25,6 +25,7 @@ const { chromium } = require('/Users/turbonoob/.openclaw/workspace/node_modules/
   console.log('Result:', JSON.stringify(result));
   if (!result.hasBeam) { console.log('FAIL - no beam visible'); process.exit(1); }
   if (result.activePowerup !== 'laser') { console.log('FAIL - wrong powerup'); process.exit(1); }
+  if (result.laserSpawnMult !== 2) { console.log('FAIL - laserSpawnMult not 2'); process.exit(1); }
   console.log('PASS');
   await browser.close();
 })();
