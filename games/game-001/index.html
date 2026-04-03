@@ -115,6 +115,26 @@ class PreloadScene extends Phaser.Scene {
     const s = this.make.graphics({ add: false });
     s.fillStyle(0x8bc34a); s.fillRect(0, 0, 5, 5);
     s.generateTexture('pstar', 5, 5); s.destroy();
+
+    // Rain drop (swamp)
+    const rain = this.make.graphics({ add: false });
+    rain.fillStyle(0x6688aa); rain.fillRect(0, 0, 1, 6);
+    rain.generateTexture('p_rain', 1, 6); rain.destroy();
+
+    // Spore (mushroom forest)
+    const spore = this.make.graphics({ add: false });
+    spore.fillStyle(0xce93d8); spore.fillCircle(2, 2, 2);
+    spore.generateTexture('p_spore', 4, 4); spore.destroy();
+
+    // Ember (volcano)
+    const ember = this.make.graphics({ add: false });
+    ember.fillStyle(0xff6b35); ember.fillCircle(2, 2, 2);
+    ember.generateTexture('p_ember', 4, 4); ember.destroy();
+
+    // Neon spark
+    const spark = this.make.graphics({ add: false });
+    spark.fillStyle(0x00e5ff); spark.fillRect(0, 0, 2, 2);
+    spark.generateTexture('p_spark', 2, 2); spark.destroy();
   }
 
   create() { this.scene.start('Boot'); }
@@ -159,6 +179,8 @@ class GameScene extends Phaser.Scene {
     this.skyGfx = null; this.groundGfx = null; this.bgMid = null; this.bgFore = null;
     this.biomeIdx = -1;
     this.initBiome(0);
+    this.weatherEmitter = null;
+    this.initWeather(0);
 
     // Frog sprite (64x64)
     this.frog = this.physics.add.sprite(80, GY, 'frog_sheet', 0).setOrigin(0.5, 1).setDepth(5);
@@ -242,6 +264,7 @@ class GameScene extends Phaser.Scene {
       this.dustEmitter.destroy();
       this.deathEmitter.destroy();
       this.clearActivePowerup();
+      if (this.weatherEmitter) this.weatherEmitter.destroy();
     });
   }
 
@@ -322,6 +345,7 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: oFore,   alpha: 0, duration: dur, ease: 'Sine.easeInOut', onComplete: () => { oFore.destroy(); this.bgForeOld = null; this.transitioning = false; } });
 
     this._showBiomeLabel(b.label, b.accentColor);
+    this.transitionWeather(idx);
   }
 
   _showBiomeLabel(label, color) {
@@ -336,6 +360,40 @@ class GameScene extends Phaser.Scene {
         onComplete: () => txt.destroy(),
       }),
     });
+  }
+
+  // ── WEATHER SYSTEM ───────────────────────────────────────────────────────────
+  _weatherConfig(biomeIdx) {
+    return [
+      // Swamp: diagonal rain
+      { key: 'p_rain', x: { min: 0, max: W }, y: -10, speedX: { min: -30, max: -10 }, speedY: { min: 120, max: 200 }, scale: 1, lifespan: 800, quantity: 1, frequency: 80 },
+      // Mushroom: rising spores
+      { key: 'p_spore', x: { min: 0, max: W }, y: GY, speedX: { min: -8, max: 8 }, speedY: { min: -60, max: -20 }, scale: { start: 0.8, end: 0 }, lifespan: 1800, quantity: 1, frequency: 120 },
+      // Volcano: falling embers
+      { key: 'p_ember', x: { min: 0, max: W }, y: -8, speedX: { min: -20, max: 20 }, speedY: { min: 80, max: 160 }, scale: { start: 1, end: 0 }, lifespan: 1000, quantity: 1, frequency: 60 },
+      // Neon city: falling sparks
+      { key: 'p_spark', x: { min: 0, max: W }, y: -4, speedX: { min: -5, max: 5 }, speedY: { min: 100, max: 180 }, scale: 1, lifespan: 700, quantity: 2, frequency: 50 },
+    ][biomeIdx] || null;
+  }
+
+  initWeather(biomeIdx) {
+    if (this.weatherEmitter) { this.weatherEmitter.destroy(); this.weatherEmitter = null; }
+    const cfg = this._weatherConfig(biomeIdx);
+    if (!cfg) return;
+    const { key, x, y, speedX, speedY, scale, lifespan, quantity, frequency } = cfg;
+    this.weatherEmitter = this.add.particles(0, 0, key, {
+      x, y, speedX, speedY, scale, lifespan, quantity, frequency,
+      emitting: true,
+    }).setDepth(1.5);
+  }
+
+  transitionWeather(biomeIdx) {
+    if (this.weatherEmitter) {
+      const old = this.weatherEmitter;
+      this.tweens.add({ targets: old, alpha: 0, duration: 1200, onComplete: () => old.destroy() });
+    }
+    this.weatherEmitter = null;
+    this.time.delayedCall(600, () => this.initWeather(biomeIdx));
   }
 
   // ── GAME LOGIC ────────────────────────────────────────────────────────────────
