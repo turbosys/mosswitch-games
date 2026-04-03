@@ -144,6 +144,8 @@ class GameScene extends Phaser.Scene {
     this.dead        = false;
     this.score = 0; this.scoreTick = 0; this.elapsed = 0;
     this.speed = 280; this.spawnInterval = 2200; this.spawnTimer = 0;
+    this.powerupTimer   = 15000; // ms until first power-up
+    this.activePowerup  = null;  // { type, fuel, maxFuel }
     this.jumpCount = 0; this.isGrounded = true;
     this.deadTimer = 0; this.spinAngle = 0;
     this.transitioning = false;
@@ -172,6 +174,13 @@ class GameScene extends Phaser.Scene {
     // Obstacles (depth 4)
     this.obstacles = this.physics.add.group();
     this.physics.add.overlap(this.frog, this.obstacles, () => { this.die(); });
+
+    // Pickups group
+    this.pickups = this.physics.add.group();
+    this.physics.add.overlap(this.frog, this.pickups, (frog, pickup) => {
+      this.collectPowerup(pickup.puType);
+      pickup.destroy();
+    });
 
     // Particles
     this.dustEmitter = this.add.particles(0, 0, 'pdust', {
@@ -202,6 +211,10 @@ class GameScene extends Phaser.Scene {
       fontSize:'12px', fontFamily:'monospace', color:'#8bc34a', stroke:'#000000', strokeThickness:2
     }).setOrigin(1,0).setDepth(10);
 
+    // Power-up bar (depth 7, hidden until active)
+    this.puBar = this.add.graphics().setDepth(7).setVisible(false);
+    this.puIcon = this.add.image(0, 0, 'pickup_fly').setDepth(7).setVisible(false).setScale(0.5);
+
     // Start overlay (depth 10)
     this.startOverlay = this.add.container(W/2, H/2-55).setDepth(10);
     const olBg = this.add.graphics();
@@ -221,6 +234,7 @@ class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.dustEmitter.destroy();
       this.deathEmitter.destroy();
+      this.clearActivePowerup();
     });
   }
 
@@ -423,6 +437,93 @@ class GameScene extends Phaser.Scene {
     return obs;
   }
 
+  spawnPickup() {
+    const biome = this.biomeIdx;
+    // Weighted type selection
+    let type;
+    const r = Math.random();
+    if (r < 0.03) {
+      type = 'rage';
+    } else if (r < 0.18) {
+      type = 'laser';
+    } else {
+      // Biome-flavoured picks
+      const biomeTypes = ['fly', 'shroom', 'shield', 'laser'];
+      const home = biomeTypes[Math.min(biome, 3)];
+      type = Math.random() < 0.6 ? home : biomeTypes[Phaser.Math.Between(0, 3)];
+    }
+
+    const textureKey = { fly: 'pickup_fly', shroom: 'pickup_shroom', shield: 'pickup_shield', laser: 'pickup_laser', rage: 'pickup_rage' }[type];
+    // Random Y: low (ground), mid (single jump), high (double jump)
+    const yOptions = [GY - 24, GY - 120, GY - 220];
+    const y = yOptions[Phaser.Math.Between(0, 2)];
+
+    const pu = this.pickups.create(W + 60, y, textureKey).setDepth(4).setOrigin(0.5, 0.5);
+    pu.body.setAllowGravity(false).setImmovable(true).setSize(40, 40).setOffset(4, 4);
+    pu.puType = type;
+    pu.setBlendMode(Phaser.BlendModes.ADD);
+
+    // Float bob tween
+    this.tweens.add({
+      targets: pu, y: y - 10, duration: 600, ease: 'Sine.easeInOut',
+      yoyo: true, repeat: -1,
+    });
+  }
+
+  collectPowerup(type) {
+    // Cancel any active power-up
+    this.clearActivePowerup();
+
+    const configs = {
+      fly:    { maxFuel: 8000,  icon: 'pickup_fly'    },
+      shroom: { maxFuel: 5000,  icon: 'pickup_shroom' },
+      shield: { maxFuel: -1,    icon: 'pickup_shield' }, // hit-based
+      laser:  { maxFuel: 6000,  icon: 'pickup_laser'  },
+      rage:   { maxFuel: 3000,  icon: 'pickup_rage'   },
+    };
+    const cfg = configs[type];
+    this.activePowerup = { type, fuel: cfg.maxFuel, maxFuel: cfg.maxFuel };
+
+    // Flash on pickup
+    this.cameras.main.flash(100, 255, 255, 255, false);
+
+    // Show UI
+    this.puIcon.setTexture(cfg.icon).setVisible(true);
+    this.puBar.setVisible(type !== 'shield');
+
+    // Type-specific activation
+    if (type === 'shroom') {
+      this.frog.setTint(0xce93d8);
+    } else if (type === 'rage') {
+      this.cameras.main.flash(80, 255, 255, 255, false);
+      this.cameras.main.shake(3000, 0.008);
+      this.frog.setScale(2);
+    } else if (type === 'laser') {
+      this.frog.play('frog_laser', true);
+      this.activateLaser();
+    } else if (type === 'shield') {
+      this.shieldRing = this.add.graphics().setDepth(6);
+    }
+
+    beep(880, 0.12);
+  }
+
+  clearActivePowerup() {
+    if (!this.activePowerup) return;
+    const { type } = this.activePowerup;
+    if (type === 'shroom') this.frog.clearTint();
+    if (type === 'rage')   { this.frog.setScale(1); this.cameras.main.shake(0); }
+    if (type === 'laser')  this.deactivateLaser();
+    if (type === 'shield' && this.shieldRing) { this.shieldRing.destroy(); this.shieldRing = null; }
+    this.activePowerup = null;
+    this.puBar.setVisible(false);
+    this.puIcon.setVisible(false);
+    if (!this.dead) this.frog.play('frog_run', true);
+  }
+
+  activateLaser() { /* implemented in Task 7 */ }
+  deactivateLaser() { /* implemented in Task 7 */ }
+
   die() {
     if (this.dead) return;
     this.dead = true;
@@ -455,6 +556,43 @@ class GameScene extends Phaser.Scene {
       this.bgFore.tilePositionX += fs;
       if (this.bgMidOld)  this.bgMidOld.tilePositionX  += ms;
       if (this.bgForeOld) this.bgForeOld.tilePositionX += fs;
+    }
+
+    // Power-up timer
+    if (this.gameStarted && !this.dead) {
+      this.powerupTimer -= delta;
+      if (this.powerupTimer <= 0) {
+        this.spawnPickup();
+        this.powerupTimer = 15000 + Phaser.Math.Between(-3000, 3000);
+      }
+    }
+
+    // Scroll pickups
+    this.pickups.getChildren().forEach(pu => {
+      pu.x -= this.speed * 0.8 * (delta / 1000); // slightly slower than obstacles
+      if (pu.x < -80) pu.destroy();
+    });
+
+    // Active power-up tick
+    if (this.activePowerup && this.activePowerup.fuel > 0) {
+      this.activePowerup.fuel -= delta;
+      if (this.activePowerup.fuel <= 0) {
+        this.clearActivePowerup();
+      } else {
+        // Update UI bar (drawn below frog)
+        const { fuel, maxFuel } = this.activePowerup;
+        const ratio = Math.max(0, fuel / maxFuel);
+        const bx = this.frog.x - 30, by = this.frog.y + 8;
+        this.puBar.clear();
+        this.puBar.fillStyle(0x333333); this.puBar.fillRect(bx, by, 60, 6);
+        this.puBar.fillStyle(0x00ff88); this.puBar.fillRect(bx, by, 60 * ratio, 6);
+        this.puIcon.setPosition(bx - 12, by + 3);
+      }
+    }
+    if (this.activePowerup?.type === 'shield' && this.shieldRing) {
+      this.shieldRing.clear();
+      this.shieldRing.lineStyle(2, 0xff8800, 0.8);
+      this.shieldRing.strokeCircle(this.frog.x, this.frog.y - 32, 36);
     }
 
     if (!this.gameStarted || this.dead) {
