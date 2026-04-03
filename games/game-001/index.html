@@ -540,7 +540,6 @@ class GameScene extends Phaser.Scene {
   deactivateLaser() {
     this.laserBeam.setVisible(false);
     this.laserSpawnMult = 1;
-    this.frog.play('frog_run', true);
   }
 
   die() {
@@ -665,7 +664,7 @@ class GameScene extends Phaser.Scene {
     else if (this.frog.y < GY - 32)  { this.isGrounded = false; }
 
     // Laser beam follows frog mouth
-    if (this.laserBeam.visible) {
+    if (this.laserBeam.visible && !this.dead) {
       this.laserBeam.setPosition(this.frog.x, this.frog.y - 32);
       const beamBounds = this.laserBeam.getBounds();
       const toDestroy = [];
