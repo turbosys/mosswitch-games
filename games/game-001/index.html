@@ -184,8 +184,8 @@ class GameScene extends Phaser.Scene {
     this.initWeather(0);
 
     // Frog sprite (64x64)
-    this.frog = this.physics.add.sprite(80, GY, 'frog_sheet', 0).setOrigin(0.5, 1).setDepth(5);
-    this.frog.body.setCollideWorldBounds(true).setSize(48, 56).setOffset(8, 8);
+    this.frog = this.physics.add.sprite(80, GY + 7, 'frog_sheet', 0).setOrigin(0.5, 1).setDepth(5);
+    this.frog.body.setCollideWorldBounds(true).setSize(48, 49).setOffset(8, 8);
     this.frog.setFrame(0); // idle squat — auto-hop drives movement
     this.frog.setBlendMode(Phaser.BlendModes.ADD);
 
@@ -452,8 +452,8 @@ class GameScene extends Phaser.Scene {
     let obs;
     switch (type) {
       case 'log':
-        obs = this.obstacles.create(W+40, GY, 'log').setOrigin(0.5,1).setDepth(4);
-        obs.body.setAllowGravity(false).setImmovable(true).setSize(36,72).setOffset(2,8);
+        obs = this.obstacles.create(W+40, GY+13, 'log').setOrigin(0.5,1).setDepth(4);
+        obs.body.setAllowGravity(false).setImmovable(true).setSize(36,59).setOffset(2,8);
         obs.setBlendMode(Phaser.BlendModes.ADD);
         break;
 
@@ -467,15 +467,15 @@ class GameScene extends Phaser.Scene {
       }
 
       case 'snake':
-        obs = this.obstacles.create(W+40, GY, 'snake').setOrigin(0.5,1).setDepth(4);
-        obs.body.setAllowGravity(false).setImmovable(true).setSize(60,28).setOffset(2,4);
+        obs = this.obstacles.create(W+40, GY+4, 'snake').setOrigin(0.5,1).setDepth(4);
+        obs.body.setAllowGravity(false).setImmovable(true).setSize(60,24).setOffset(2,4);
         obs.obsSpeed = this.speed * 1.3;
         obs.setBlendMode(Phaser.BlendModes.ADD);
         break;
 
       case 'spore_cloud':
-        obs = this.obstacles.create(W+48, GY-12, 'spore_cloud').setOrigin(0.5,1).setDepth(4);
-        obs.body.setAllowGravity(false).setImmovable(true).setSize(90,40).setOffset(3,4);
+        obs = this.obstacles.create(W+48, GY-4, 'spore_cloud').setOrigin(0.5,1).setDepth(4);
+        obs.body.setAllowGravity(false).setImmovable(true).setSize(90,32).setOffset(3,4);
         obs.setBlendMode(Phaser.BlendModes.ADD);
         break;
 
@@ -490,11 +490,12 @@ class GameScene extends Phaser.Scene {
       }
 
       case 'laser_grid': {
-        obs = this.obstacles.create(W+40, GY-80, 'laser_grid').setOrigin(0.5,1).setDepth(4);
+        obs = this.obstacles.create(W+40, GY-75, 'laser_grid').setOrigin(0.5,1).setDepth(4);
         obs.body.setAllowGravity(false).setImmovable(false);
-        obs.body.setSize(24,80).setOffset(4,8);
+        obs.body.setSize(24,75).setOffset(4,8);
         obs.beamHigh = true; obs.beamTimer = 0;
-        obs.beamHitbox = this.physics.add.staticImage(obs.x - W/2, GY-140, null)
+        // Start hitbox off-screen right — update loop positions it correctly each frame
+        obs.beamHitbox = this.physics.add.staticImage(W + 200, GY-140, null)
           .setVisible(false).setDisplaySize(W, 24).refreshBody();
         this.physics.add.overlap(this.frog, obs.beamHitbox, () => this.die());
         obs.setBlendMode(Phaser.BlendModes.ADD);
